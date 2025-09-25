@@ -11,10 +11,10 @@ import {
   ConversationScrollButton,
 } from '@/components/ai-elements/conversation';
 import { Message, MessageContent } from '@/components/ai-elements/message';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { Button } from './ui/button';
-import { Copy, Loader, Loader2, RefreshCcwIcon, Send, Sparkles } from 'lucide-react';
+import { Copy, Loader, Loader2, Send, Sparkles } from 'lucide-react';
 import { useAutoResizeTextarea } from '@/hooks/use-auto-resize';
 import { Streamdown } from 'streamdown';
 import remarkGfm from 'remark-gfm';
@@ -24,11 +24,15 @@ import { DefaultChatTransport } from 'ai';
 import { useVisitorId } from '@/hooks/use-visitor-id';
 import TextShimmer from './ui/text-shimmer';
 import { Action, Actions } from './ai-elements/actions';
-import Image from 'next/image';
-import { uuid } from 'zod';
+
 import SignInWithLinkedIn from './SignInWithLinkedIn';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSession } from 'next-auth/react';
+import LinkedInContentCard from '@/components/LinkedInContentCard';
+import LinkedInContentPanel from '@/components/LinkedInContentPanel';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ErrorBoundary } from './ErrorBoundary';
+import { LoadingState, OptimisticWrapper } from './LoadingState';
 
 export default function Agent({
   chatId,
@@ -36,6 +40,7 @@ export default function Agent({
 }: { chatId?: string | undefined; initialMessages?: MyUIMessage[] } = {}) {
   const [input, setInput] = useState('');
   const [isLive, setIsLive] = useState(false);
+  const [openedContentId, setOpenedContentId] = useState<string | null>(null);
   const { visitorId } = useVisitorId();
   const { setIsLiveChat } = useAuth();
   const { data: session } = useSession();
@@ -45,6 +50,18 @@ export default function Agent({
   useEffect(() => {
     setIsLiveChat(isLive);
   }, [isLive, setIsLiveChat]);
+
+
+
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleOpenContent = useCallback((contentId: string) => {
+    setOpenedContentId(contentId);
+  }, []);
+
+  const handleCloseContent = useCallback(() => {
+    setOpenedContentId(null);
+  }, []);
+
   const { status, messages, sendMessage } =
     useChat<MyUIMessage>({
       id: chatId,
@@ -64,6 +81,41 @@ export default function Agent({
         },
       }),
     });
+
+  // Memoized function to get opened content data
+  const getOpenedContentData = useCallback(() => {
+    if (!openedContentId) return null;
+
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (part.type === 'data-linkedInContent' && part.id === openedContentId) {
+          return part.data;
+        }
+      }
+    }
+    return null;
+  }, [openedContentId, messages]);
+
+  // Memoized opened content data
+  const openedContent = useMemo(() => getOpenedContentData(), [getOpenedContentData]);
+
+  // Auto-open editor when content is being generated (optimized)
+  useEffect(() => {
+    if (openedContentId) return; // Don't override if already open
+
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (part.type === 'data-linkedInContent' &&
+            (part.data.status === 'processing' || part.data.status === 'streaming')) {
+          const contentId = part.id || `${message.id}-${message.parts.indexOf(part)}`;
+          setOpenedContentId(contentId);
+          return; // Exit early once found
+        }
+      }
+    }
+  }, [messages, openedContentId]);
+
+
 
   // Check for initial message from Send component
   useEffect(() => {
@@ -120,17 +172,54 @@ export default function Agent({
   }, [status, textareaRef]);
 
   return (
-    <div className="max-w-4xl mx-auto pt-4 pb-2 relative size-full rounded-lg h-screen">
-      <div className="flex flex-col h-full">
-        <Conversation className='max-w-3xl mx-auto w-full'>
-          <ConversationContent>
+    <ErrorBoundary>
+      <div className="relative size-full h-screen overflow-hidden pt-10">
+      <div className="flex h-full">
+        {/* Chat Area */}
+        <motion.div
+          className="flex flex-col h-full"
+          initial={{ width: "100%" }}
+          animate={{
+            width: openedContentId ? "50%" : "100%",
+          }}
+          transition={{
+            duration: 0.5,
+            ease: "easeInOut"
+          }}
+        >
+          <div className="max-w-4xl mx-auto pt-4 pb-2 relative size-full rounded-lg h-full">
+            <div className="flex flex-col h-full">
+              <Conversation className='max-w-3xl mx-auto w-full'>
+                <ConversationContent>
             {messages.map((message, messageIndex) => {
               // Check if this message is from initialMessages (historical)
               const isHistoricalMessage = initialMessages && messageIndex < initialMessages.length;
 
               return (
-                <Message from={message.role} key={message.id}>
-                  <MessageContent variant="flat">
+                <div key={message.id}>
+                  {message.role === "assistant" && (
+                    <div className="mb-4">
+                      {message.parts.map((part, i) => {
+                        switch (part.type) {
+                          case "data-linkedInContent":
+                            return (
+                              <LinkedInContentCard
+                                key={`${message.id}-${i}`}
+                                id={part.id || `${message.id}-${i}`}
+                                title={part.data.topic ? `LinkedIn Post: ${part.data.topic}` : "LinkedIn Content"}
+                                status={part.data.status}
+                                onActivate={handleOpenContent}
+                                isActive={openedContentId === (part.id || `${message.id}-${i}`)}
+                              />
+                            );
+                          default:
+                            return null;
+                        }
+                      })}
+                    </div>
+                  )}
+                  <Message from={message.role}>
+                    <MessageContent variant="flat">
                     {message.parts.map((part, i) => {
                     switch (part.type) {
 
@@ -244,11 +333,16 @@ export default function Agent({
                             <ReasoningContent>{part.text}</ReasoningContent>
                           </Reasoning>
                         );
+
+                      case 'data-linkedInContent':
+                        // This is now handled in the Sources section above
+                        return null;
                     }
                   })}
-                </MessageContent>
-              </Message>
-            );
+                    </MessageContent>
+                  </Message>
+                </div>
+              );
             })}
             {status === 'submitted' && (
               <div className="flex items-center gap-1">
@@ -260,39 +354,69 @@ export default function Agent({
             )}
           </ConversationContent>
           <ConversationScrollButton />
-        </Conversation>
-        <div className="mx-auto w-full max-w-2xl px-2 pt-4">
-          <div className="shadow-primary/20 shadow-2xl relative rounded-lg">
-            <div className="flex flex-col rounded-lg border bg-gradient-to-b from-secondary/40 to-background p-3 pb-6 relative overflow-hidden">
-              <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent to-transparent via-primary pointer-events-none select-none"></div>
-              <div className="absolute bottom-0 left-0 w-full h-3 bg-gradient-to-r from-transparent to-transparent via-primary pointer-events-none select-none blur-2xl"></div>
-              <textarea
-                ref={textareaRef}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  adjustHeight();
-                }}
-                onKeyDown={handleKeyDown}
-                value={input}
-                placeholder="Type your message here..."
-                className="max-h-32 w-full outline-none resize-none text-sm"
-              />
-              <div className="mt-auto flex gap-2 absolute bottom-2 right-2 z-10">
-                <Button size="sm" variant="ghost" className="cursor-pointer transition-colors! ease-in-out! duration-500! hover:shadow-2xl hover:shadow-blue-700 text-muted-foreground hover:text-foreground"
-                ><Sparkles /></Button>
-                <Button
-                  size="sm"
-                  className="cursor-pointer transition-all ease-in duration-300 hover:shadow-2xl hover:shadow-blue-700"
-                  onClick={handleSend}
-                  disabled={!input.trim() || status === 'streaming' || status == 'submitted'}
-                >
-                  {status === 'streaming' || status == 'submitted' ? <Loader2 className="animate-spin" /> : <Send />}
-                </Button>
+              </Conversation>
+              <div className="mx-auto w-full max-w-2xl px-2 pt-4">
+                <div className="shadow-primary/20 shadow-2xl relative rounded-lg">
+                  <div className="flex flex-col rounded-lg border bg-gradient-to-b from-secondary/40 to-background p-3 pb-6 relative overflow-hidden">
+                    <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent to-transparent via-primary pointer-events-none select-none"></div>
+                    <div className="absolute bottom-0 left-0 w-full h-3 bg-gradient-to-r from-transparent to-transparent via-primary pointer-events-none select-none blur-2xl"></div>
+                    <textarea
+                      ref={textareaRef}
+                      onChange={(e) => {
+                        setInput(e.target.value);
+                        adjustHeight();
+                      }}
+                      onKeyDown={handleKeyDown}
+                      value={input}
+                      placeholder="Type your message here..."
+                      className="max-h-32 w-full outline-none resize-none text-sm"
+                    />
+                    <div className="mt-auto flex gap-2 absolute bottom-2 right-2 z-10">
+                      <Button size="sm" variant="ghost" className="cursor-pointer transition-colors! ease-in-out! duration-500! hover:shadow-2xl hover:shadow-blue-700 text-muted-foreground hover:text-foreground"
+                      ><Sparkles /></Button>
+                      <Button
+                        size="sm"
+                        className="cursor-pointer transition-all ease-in duration-300 hover:shadow-2xl hover:shadow-blue-700"
+                        onClick={handleSend}
+                        disabled={!input.trim() || status === 'streaming' || status == 'submitted'}
+                      >
+                        {status === 'streaming' || status == 'submitted' ? <Loader2 className="animate-spin" /> : <Send />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
+
+        {/* Editor Panel */}
+        <AnimatePresence>
+          {openedContentId && openedContent && (
+            <motion.div
+              className="w-1/2 h-full"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{
+                duration: 0.5,
+                ease: "easeInOut"
+              }}
+            >
+              <LinkedInContentPanel
+                id={openedContentId}
+                title={openedContent.topic ? `LinkedIn Post: ${openedContent.topic}` : "LinkedIn Content"}
+                content={openedContent.content}
+                topic={openedContent.topic}
+                tone={openedContent.tone}
+                status={openedContent.status}
+                onClose={handleCloseContent}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };

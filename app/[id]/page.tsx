@@ -10,6 +10,8 @@ import { MyUIMessage } from "@/types/tooltype";
 import { Loader2 } from "lucide-react";
 import { ModeToggle } from "@/components/ThemeToggle";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LoadingState } from "@/components/LoadingState";
 import NotFound from "@/components/NotFound";
 import UserButton from "@/components/UserButton";
 
@@ -78,18 +80,22 @@ export default function AIChatPage() {
 
   // For new chats, show immediately without loading screen
   if (isNewChat && hasAccess) {
-    return <>
-      <header className="inline-flex z-50 h-10 fixed w-full bg-background">
-        <div className="flex w-full items-center justify-between px-4 lg:px-6 bg-background">
-          <div className="flex items-center gap-1 lg:gap-2">
-            <SidebarTrigger className="text-muted-foreground hover:text-foreground cursor-pointer" />
-            <ModeToggle />
+    return (
+      <ErrorBoundary>
+        <header className="inline-flex z-50 h-10 fixed w-full bg-background">
+          <div className="flex w-full items-center justify-between px-4 lg:px-6 bg-background">
+            <div className="flex items-center gap-1 lg:gap-2">
+              <SidebarTrigger className="text-muted-foreground hover:text-foreground cursor-pointer" />
+              <ModeToggle />
+            </div>
+            <UserButton />
           </div>
-          <UserButton />
-        </div>
-      </header>
-      <Agent chatId={chatId} initialMessages={[]} />
-    </>;
+        </header>
+        <ErrorBoundary fallback={<LoadingState message="Failed to load new chat" fullScreen />}>
+          <Agent chatId={chatId} initialMessages={[]} />
+        </ErrorBoundary>
+      </ErrorBoundary>
+    );
   }
 
   // Only show loading for existing chats
@@ -108,7 +114,7 @@ export default function AIChatPage() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <header className="inline-flex z-50 h-10 fixed w-full bg-background">
         <div className="flex w-full items-center justify-between px-4 lg:px-6 bg-background">
           <div className="flex items-center gap-1 lg:gap-2">
@@ -118,7 +124,9 @@ export default function AIChatPage() {
           <UserButton />
         </div>
       </header>
-      <Agent chatId={chatId} initialMessages={messages} />
-    </>
+      <ErrorBoundary fallback={<LoadingState message="Failed to load chat" fullScreen />}>
+        <Agent chatId={chatId} initialMessages={messages} />
+      </ErrorBoundary>
+    </ErrorBoundary>
   );
 }

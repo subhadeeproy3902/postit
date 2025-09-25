@@ -5,9 +5,31 @@ import {
   tool,
   UIMessage,
   UIMessageStreamWriter,
+  streamText,
+  generateId,
+  smoothStream,
 } from "ai";
 import z from "zod/v4";
 import { Session } from "next-auth";
+import { groq } from "@ai-sdk/groq";
+import { toUnicodeVariant } from "unicode-text-styler";
+
+// Function to enhance LinkedIn content with Unicode styling
+const enhanceLinkedInContent = (content: string): string => {
+  // Apply subtle Unicode styling to make content more engaging
+  // Bold key phrases and important words
+  const enhancedContent = content
+    // Bold common LinkedIn keywords and phrases
+    .replace(/\b(LinkedIn|networking|professional|career|opportunity|growth|success|achievement|leadership|innovation|strategy|team|collaboration|experience|skills|expertise|industry|business|company|organization|project|results|impact|value|goals|objectives|vision|mission)\b/gi,
+      (match) => toUnicodeVariant(match, "bold"))
+    // Make hashtags more prominent with bold styling
+    .replace(/#(\w+)/g, (match, hashtag) => `#${toUnicodeVariant(hashtag, "bold")}`)
+    // Style call-to-action phrases
+    .replace(/\b(let's connect|reach out|comment below|share your thoughts|what do you think|join the conversation|follow for more|like and share)\b/gi,
+      (match) => toUnicodeVariant(match, "bold"));
+
+  return enhancedContent;
+};
 
 export const getAIGeneratedImage = (
   writer: UIMessageStreamWriter<UIMessage<never, MyDataPart>>
@@ -136,7 +158,11 @@ export const postToLinkedIn = (
       };
     }
 
+    // Enhance content with Unicode styling for better LinkedIn engagement
+    const enhancedContent = enhanceLinkedInContent(content);
+
     try {
+
       // Process media files - convert URLs to LinkedIn API format
       interface MediaFile {
         type: 'image' | 'video';
@@ -225,15 +251,13 @@ export const postToLinkedIn = (
         }
       }
 
-      // Use absolute URL for server-side fetch
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-      const postResult = await fetch(`${baseUrl}/api/post`, {
+      const postResult = await fetch('/api/linkedin/post', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content,
+          content: enhancedContent,
           mediaFiles: processedMediaFiles,
           accessToken: session.accessToken,
           linkedinId: session.linkedinId,
@@ -244,7 +268,7 @@ export const postToLinkedIn = (
         const errorData = await postResult.json();
         writer.write({
           type: "data-postToLinkedIn",
-          data: { loading: false, content, images, video, error: errorData.error },
+          data: { loading: false, content: enhancedContent, images, video, error: errorData.error },
         });
         return {
           error: errorData.error || `Failed to post to LinkedIn: ${postResult.statusText}`,
@@ -255,7 +279,7 @@ export const postToLinkedIn = (
 
       writer.write({
         type: "data-postToLinkedIn",
-        data: { loading: false, content, images, video, success: true, postId: result.postId },
+        data: { loading: false, content: enhancedContent, images, video, success: true, postId: result.postId },
       });
 
       // Return only the post ID on success
@@ -272,7 +296,7 @@ export const postToLinkedIn = (
       const errorMessage = error instanceof Error ? error.message : "Unknown error occurred while posting to LinkedIn";
       writer.write({
         type: "data-postToLinkedIn",
-        data: { loading: false, content, images, video, error: errorMessage },
+        data: { loading: false, content: enhancedContent, images, video, error: errorMessage },
       });
       return {
         error: errorMessage,
@@ -289,9 +313,122 @@ export type postToLinkedInOutput = InferToolOutput<
   ReturnType<typeof postToLinkedIn>
 >;
 
+export const getLinkedInContent = (
+  writer: UIMessageStreamWriter<UIMessage<never, MyDataPart>>
+) =>
+  tool({
+    description:
+      "Generate professional LinkedIn content based on user's idea, topic, or request. Creates engaging posts with proper formatting, hashtags, and call-to-action.",
+    inputSchema: z.object({
+      topic: z
+        .string()
+        .describe("The main topic, idea, or request for the LinkedIn content"),
+      tone: z
+        .enum(["professional", "casual", "inspirational", "educational", "promotional"])
+        .default("professional")
+        .describe("The tone of voice for the LinkedIn post"),
+      includeHashtags: z
+        .boolean()
+        .default(true)
+        .describe("Whether to include relevant hashtags"),
+      includeCallToAction: z
+        .boolean()
+        .default(true)
+        .describe("Whether to include a call-to-action"),
+    }),
+    execute: async ({ topic, tone, includeHashtags, includeCallToAction }) => {
+      const documentId = generateId();
+
+      writer.write({
+        type: "data-linkedInContent",
+        id: documentId,
+        data: {
+          status: "processing",
+          content: undefined,
+          topic,
+          tone,
+        },
+      });
+
+      const { textStream } = streamText({
+        model: groq("llama-3.3-70b-versatile"),
+        system: [
+          "You are a professional LinkedIn content creator and social media expert.",
+          "Generate engaging, professional LinkedIn posts that drive engagement and build professional networks.",
+          "Content requirements:",
+          "- Use clear, professional language appropriate for LinkedIn",
+          "- Use markdown bold, italic, underlines, strikethrough if needed highly. Do not use heading (#, ##, ###",
+          "- Structure content with short paragraphs and bullet points for readability",
+          "- Include relevant emojis sparingly and professionally",
+          "- Make content actionable and valuable to the professional community",
+          "- Keep posts between 150-300 words for optimal engagement",
+          "- Use line breaks and formatting for visual appeal",
+          includeHashtags && "- Include 3-5 relevant hashtags at the end",
+          includeCallToAction && "- End with a clear call-to-action or question to encourage engagement",
+          `- Tone should be ${tone}`,
+          "- Output only the LinkedIn post content, no additional formatting or metadata",
+        ].filter(Boolean).join("\n"),
+        messages: [
+          {
+            role: "user",
+            content: `Create a LinkedIn post about: ${topic}`,
+          },
+        ],
+        experimental_transform: smoothStream({
+          delayInMs: 30,
+          chunking: "word",
+        })
+      });
+
+      let fullContent = "";
+
+      for await (const chunk of textStream) {
+        fullContent += chunk;
+
+        writer.write({
+          type: "data-linkedInContent",
+          id: documentId,
+          data: {
+            status: "streaming",
+            content: fullContent,
+            topic,
+            tone,
+          },
+        });
+      }
+
+      writer.write({
+        type: "data-linkedInContent",
+        id: documentId,
+        data: {
+          status: "success",
+          content: fullContent,
+          topic,
+          tone,
+        },
+      });
+
+      return {
+        content: fullContent,
+        topic,
+        tone,
+        documentId,
+      };
+    },
+  });
+
+// types used in our db schema
+export type getLinkedInContentInput = InferToolInput<
+  ReturnType<typeof getLinkedInContent>
+>;
+export type getLinkedInContentOutput = InferToolOutput<
+  ReturnType<typeof getLinkedInContent>
+>;
+
 export const tools = (writer: UIMessageStreamWriter, session: Session | null = null) => ({
   getAIGeneratedImage: getAIGeneratedImage(writer),
   getWebsiteScreenshot: getWebsiteScreenshot(writer),
   postToLinkedIn: postToLinkedIn(writer, session),
+  getLinkedInContent: getLinkedInContent(writer),
 });
 

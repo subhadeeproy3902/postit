@@ -77,6 +77,9 @@ export function useWindowSize(): WindowSizeState {
   }, 200)
 
   React.useEffect(() => {
+    // Check if we're in a browser environment
+    if (typeof window === "undefined") return
+
     const visualViewport = window.visualViewport
     if (!visualViewport) return
 

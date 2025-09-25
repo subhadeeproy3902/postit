@@ -26,6 +26,12 @@ export const dataPartSchema = z.object({
     success: z.boolean().optional(),
     postId: z.string().optional(),
   }),
+  linkedInContent: z.object({
+    status: z.enum(["processing", "streaming", "success", "error"]),
+    content: z.string().optional(),
+    topic: z.string().optional(),
+    tone: z.string().optional(),
+  }),
 });
 
 export type MyDataPart = z.infer<typeof dataPartSchema>;

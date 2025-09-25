@@ -124,8 +124,10 @@ const MobileToolbarContent = ({
 export function SimpleEditor(
   {
     content = "",
+    onChange,
   }: {
     content?: string
+    onChange?: (content: string) => void
   }
 ) {
   const isMobile = useIsMobile()
@@ -167,11 +169,47 @@ export function SimpleEditor(
       }),
     ],
     content,
+    onUpdate: ({ editor }) => {
+      if (onChange) {
+        // Use getHTML() or getText() instead of markdown storage
+        const content = editor.getHTML();
+        onChange(content);
+      }
+    },
   })
 
   React.useEffect(() => {
-    if (editor && content) {
-      editor.commands.setContent(content)
+    if (editor && content !== undefined) {
+      // Only update if content is different to avoid cursor jumping
+      const currentContent = editor.getHTML();
+      if (currentContent !== content) {
+        // Check if editor is focused to avoid disrupting user editing
+        const isFocused = editor.isFocused;
+
+        if (!isFocused) {
+          // If not focused, safe to update content
+          editor.commands.setContent(content);
+        } else {
+          // If focused, only update if content is significantly different (streaming case)
+          // This allows user editing while preventing conflicts with streaming content
+          const contentLength = content.length;
+          const currentLength = currentContent.length;
+
+          // Only update if new content is significantly longer (streaming) or completely different
+          if (contentLength > currentLength + 10 || currentLength === 0) {
+            const { from, to } = editor.state.selection;
+            editor.commands.setContent(content);
+            // Try to restore cursor position if it's still valid
+            const newSize = editor.state.doc.content.size;
+            if (from <= newSize) {
+              editor.commands.setTextSelection({
+                from: Math.min(from, newSize),
+                to: Math.min(to, newSize)
+              });
+            }
+          }
+        }
+      }
     }
   }, [content, editor])
 

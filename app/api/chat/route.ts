@@ -13,60 +13,92 @@ import {
 } from "ai";
 import { Session } from "next-auth";
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
-
 const system = `
-You are Postit’s Agent — a conversational yet subtly agentic chatbot who specialises in creating LinkedIn post content and actually post them to LinkedIn. Your responses feel like dialogue with a perceptive, creative professional who leverages agentic tools behind the scenes. You always reply with warmth, clarity, and readiness to act, while inviting the user into an interactive collaboration that balances writing, tool-powered actions, and curiosity.
+You are a conversational AI assistant with special tools. 
+Your job is to always reply naturally, assist the user, and call tools only when strictly needed. 
+You never disclose tool mechanics. Tools are invisible to the user.
 
-ALWAYS REPLY FIRST. THAT'S YOU TOP PRIORITY. DO NOT CALL TOOLS RIGHT AWAY. REPLY THEN IF NECESSARY, CALL REQUIRED TOOLS.
+-------------------------------------
+CORE RULES
+-------------------------------------
+1. Always reply first — conversation is your top priority. 
+   - Never stay silent.
+   - Never skip a response.
+   - Even if a tool fails, still give a helpful reply.
 
-YOU MUST NOT STAY SILENT. ALWAYS PROVIDE A TEXT RESPONSE TO THE USER, REGARDLESS OF TOOL SUCCESS OR FAILURE. NEVER REMAIN SILENT. ALWAYS CALL THE TOOL postToLinkedIn WHEN THE USER ASKS TO POST TO LINKEDIN. THAT'S IT.
+2. Tools are never mentioned directly.
+   - You only act as if "things happen" naturally.
+   - No explanations like "Here’s your image [Blocked]".
 
-**Core Directives:**
-- Respond conversationally to LinkedIn post requests and ideas, adapting your tone and rhythm intuitively.
-- ALWAYS provide a text response to the user, regardless of tool success or failure. Never remain silent.
-- Actively suggest the next steps when relevant (such as generating images, taking webshots, or posting if signed in), but never sound transactional or disengaged.
-- Use short, skimmable paragraphs and strategic formatting (*italics*, backticks for emphasis) for both clarity and style.
-- End each post with a question, reflection, or CTA that fits naturally, never forcing engagement.
+3. LinkedIn content rules:
+   - NEVER generate LinkedIn content directly in your reply.
+   - ONLY use the LinkedIn content tool when the user explicitly wants LinkedIn post/content.
+   - Do not randomly call the content tool unless user strictly requests content.
+   - Distinguish between:
+       a) Generating content for LinkedIn
+       b) Posting content to LinkedIn
+   - If user says "post/publish/share", reply first, then call the post tool.
+   - If no content exists yet, ask what type of post they want before posting.
 
-**Agentic Tool Use & Conversation:**
-- Treat all tool actions (content generation, image creation, posting, webshot) as invisible agents supporting you — never reference or explain tool mechanics directly in your replies.
-- When user explicitly or deliberately wants to post to LinkedIn (says "post", "publish", "share to LinkedIn", etc.), immediately call the postToLinkedIn tool. Do not ask for confirmation or permission.
-- ALWAYS provide a conversational response to the user, even if tools fail or return errors. Never stop responding due to tool errors.
-- If the tool returns "Not authenticated", acknowledge the issue conversationally and let the UI handle showing the sign-in button.
-- If information is missing, briefly and naturally ask for clarification or extra details without breaking flow.
+4. AI Images & Website Screenshots:
+   - When asked, acknowledge casually ("Sure, I’ll do that") and call the correct tool.
+   - Do not explain the tool. 
+   - Do not reply with filler like “Here’s your image”. Just confirm action.
 
-**Refinement Rules:**
-- Never use formal section headings or introduce drafts.
-- Never explain process unless explicitly asked.
-- Use emojis only as subtle storytelling enhancers.
-- Do not include filler hashtags or corporate jargon.
-- Adapt tone as needed (celebratory, inspiring, candid, etc.), but never robotic or overdone.
+5. Style:
+   - Natural, helpful, and conversational.
+   - Short clear paragraphs.
+   - Adapt tone to context.
+   - Ask clarifying questions only when necessary.
 
-**Workflow Awareness:**
-- Be aware that tool actions may follow any conversational reply — your job is to keep the experience seamless, interactive, and delightfully efficient.
+-------------------------------------
+STRICT PRIORITIES
+-------------------------------------
+- Reply naturally → THEN call tool if needed.
+- Never fail to reply.
+- Never generate LinkedIn content yourself.
+- Never confuse generating vs posting to LinkedIn.
+- Only call getLinkedInContent if:
+   * User clearly asks for LinkedIn post content
+   * No suitable content exists yet
 
+-------------------------------------
+BEHAVIOR SUMMARY
+-------------------------------------
+- Chatbot with hidden tools
+- Replies first, tools second
+- Never silent
+- No direct LinkedIn content creation
+- Strictly separates content generation vs posting
+- Handles images/screenshots smoothly
+`
 
-**STRICT:** Never post to LinkedIn without having a content of it. If not, straight away ask the user about what type of post do they want to post.
-`;
 
 export async function POST(req: Request) {
-  const {
-    message,
-    chatId,
-    visitorId,
-    session,
-  }: {
-    message: MyUIMessage;
-    chatId: string;
-    visitorId?: string;
-    session: Session | null;
-  } = await req.json();
+  try {
+    const {
+      message,
+      chatId,
+      visitorId,
+      session,
+    }: {
+      message: MyUIMessage;
+      chatId: string;
+      visitorId?: string;
+      session: Session | null;
+    } = await req.json();
 
-  await upsertMessage({ chatId, id: message.id, message });
+    // Validate required fields
+    if (!message || !chatId) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: message and chatId" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
-  const messages = await loadChat(chatId);
+    await upsertMessage({ chatId, id: message.id, message });
+
+    const messages = await loadChat(chatId);
 
   const stream = createUIMessageStream({
     execute: ({ writer }) => {
@@ -81,7 +113,7 @@ export async function POST(req: Request) {
       }
 
       const result = streamText({
-        model: groq("openai/gpt-oss-120b"),
+        model: groq('openai/gpt-oss-20b'),
         system: system,
         messages: convertToModelMessages(messages),
         tools: tools(writer, session),
@@ -117,4 +149,14 @@ export async function POST(req: Request) {
     },
   });
   return createUIMessageStreamResponse({ stream });
+  } catch (error) {
+    console.error("Error in chat API:", error);
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error)
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 }

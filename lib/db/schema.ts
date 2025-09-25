@@ -19,6 +19,8 @@ import {
   getAIGeneratedImageOutput,
   postToLinkedInInput,
   postToLinkedInOutput,
+  getLinkedInContentInput,
+  getLinkedInContentOutput,
 } from "@/tools";
 
 export const chats = pgTable("chats", {
@@ -99,6 +101,9 @@ export const parts = pgTable(
     tool_postToLinkedIn_input: jsonb().$type<postToLinkedInInput>(),
     tool_postToLinkedIn_output: jsonb().$type<postToLinkedInOutput>(),
 
+    tool_getLinkedInContent_input: jsonb().$type<getLinkedInContentInput>(),
+    tool_getLinkedInContent_output: jsonb().$type<getLinkedInContentOutput>(),
+
     // Data parts
     data_aiImage_id: varchar().$defaultFn(() => generateId()),
     data_aiImage_loading: boolean().$type<MyDataPart["aiImage"]["loading"]>(),
@@ -117,6 +122,12 @@ export const parts = pgTable(
     data_postToLinkedIn_content: varchar().$type<MyDataPart["postToLinkedIn"]["content"]>(),
     data_postToLinkedIn_images: jsonb().$type<MyDataPart["postToLinkedIn"]["images"]>(),
     data_postToLinkedIn_video: jsonb().$type<MyDataPart["postToLinkedIn"]["video"]>(),
+
+    data_linkedInContent_id: varchar().$defaultFn(() => generateId()),
+    data_linkedInContent_status: varchar().$type<MyDataPart["linkedInContent"]["status"]>(),
+    data_linkedInContent_content: text().$type<MyDataPart["linkedInContent"]["content"]>(),
+    data_linkedInContent_topic: varchar().$type<MyDataPart["linkedInContent"]["topic"]>(),
+    data_linkedInContent_tone: varchar().$type<MyDataPart["linkedInContent"]["tone"]>(),
 
     providerMetadata: jsonb().$type<MyProviderMetadata>(),
   },

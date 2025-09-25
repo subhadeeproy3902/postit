@@ -6,6 +6,17 @@ export const mapUIMessagePartsToDBParts = (
   messageId: string,
 ): MyDBUIMessagePart[] => {
   return messageParts.map((part, index) => {
+    // Add debugging and validation
+    if (!part || typeof part !== 'object') {
+      console.error('Invalid part:', part, 'at index:', index);
+      throw new Error(`Invalid part at index ${index}: ${JSON.stringify(part)}`);
+    }
+
+    if (!part.type) {
+      console.error('Part missing type:', part, 'at index:', index);
+      throw new Error(`Part missing type at index ${index}: ${JSON.stringify(part)}`);
+    }
+
     switch (part.type) {
       case "text":
         return {
@@ -112,6 +123,24 @@ export const mapUIMessagePartsToDBParts = (
           tool_postToLinkedIn_errorText:
             part.state === "output-error" ? part.errorText : undefined,
         };
+      case "tool-getLinkedInContent":
+        return {
+          messageId,
+          order: index,
+          type: part.type,
+          tool_toolCallId: part.toolCallId,
+          tool_state: part.state,
+          tool_getLinkedInContent_input:
+            part.state === "input-available" ||
+            part.state === "output-available" ||
+            part.state === "output-error"
+              ? part.input
+              : undefined,
+          tool_getLinkedInContent_output:
+            part.state === "output-available" ? part.output : undefined,
+          tool_getLinkedInContent_errorText:
+            part.state === "output-error" ? part.errorText : undefined,
+        };
       case "data-aiImage":
         return {
           messageId,
@@ -143,8 +172,27 @@ export const mapUIMessagePartsToDBParts = (
           data_postToLinkedIn_images: part.data.images,
           data_postToLinkedIn_video: part.data.video,
         };
+      case "data-linkedInContent":
+        return {
+          messageId,
+          order: index,
+          type: part.type,
+          data_linkedInContent_id: part.id,
+          data_linkedInContent_status: part.data.status,
+          data_linkedInContent_content: part.data.content,
+          data_linkedInContent_topic: part.data.topic,
+          data_linkedInContent_tone: part.data.tone,
+        };
       default:
-        throw new Error(`Unsupported part type: ${part}`);
+        console.error('Unsupported part type:', part.type, 'Full part:', part, 'at index:', index);
+        // Instead of throwing, return a safe fallback to prevent crashes
+        console.warn(`Skipping unsupported part type: ${part.type} at index ${index}`);
+        return {
+          messageId,
+          order: index,
+          type: "text", // Fallback to text type
+          text_text: `[Unsupported content type: ${part.type}]`,
+        };
     }
   });
 };
@@ -300,6 +348,42 @@ export const mapDBPartToUIMessagePart = (
             errorText: part.tool_errorText!,
           };
       }
+    case "tool-getLinkedInContent":
+      if (!part.tool_state) {
+        throw new Error("getLinkedInContent_state is undefined");
+      }
+      switch (part.tool_state) {
+        case "input-streaming":
+          return {
+            type: "tool-getLinkedInContent",
+            state: "input-streaming",
+            toolCallId: part.tool_toolCallId!,
+            input: part.tool_getLinkedInContent_input!,
+          };
+        case "input-available":
+          return {
+            type: "tool-getLinkedInContent",
+            state: "input-available",
+            toolCallId: part.tool_toolCallId!,
+            input: part.tool_getLinkedInContent_input!,
+          };
+        case "output-available":
+          return {
+            type: "tool-getLinkedInContent",
+            state: "output-available",
+            toolCallId: part.tool_toolCallId!,
+            input: part.tool_getLinkedInContent_input!,
+            output: part.tool_getLinkedInContent_output!,
+          };
+        case "output-error":
+          return {
+            type: "tool-getLinkedInContent",
+            state: "output-error",
+            toolCallId: part.tool_toolCallId!,
+            input: part.tool_getLinkedInContent_input!,
+            errorText: part.tool_errorText!,
+          };
+      }
     case "data-aiImage":
       return {
         type: "data-aiImage",
@@ -330,6 +414,17 @@ export const mapDBPartToUIMessagePart = (
           video: part.data_postToLinkedIn_video ?? undefined,
         },
         id: part.data_postToLinkedIn_id!,
+      };
+    case "data-linkedInContent":
+      return {
+        type: "data-linkedInContent",
+        data: {
+          status: part.data_linkedInContent_status!,
+          content: part.data_linkedInContent_content ?? undefined,
+          topic: part.data_linkedInContent_topic ?? undefined,
+          tone: part.data_linkedInContent_tone ?? undefined,
+        },
+        id: part.data_linkedInContent_id!,
       };
     default:
       throw new Error(`Unsupported part type: ${part.type}`);
