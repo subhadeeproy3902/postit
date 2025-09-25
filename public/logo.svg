@@ -1,0 +1,28 @@
+
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="30"
+        height="30"
+        viewBox="0 0 50 50"
+        fill="none"
+        style="transform: rotate(0deg)"
+      >
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M13.8126 31.25V6.25L3 12.5V37.5L24.608 50L35.4206 43.75L13.8126 31.25Z"
+          fill="#006af5"
+          stroke="#006af5"
+          strokeWidth="0"
+        />
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M24.6074 25L46.2155 37.5V25L35.42 18.75V6.25L24.6074 0V25Z"
+          fill="#006af5"
+          stroke="#006af5"
+          strokeWidth="0"
+        />
+      </svg>
+     
+     

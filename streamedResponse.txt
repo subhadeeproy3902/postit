@@ -1,0 +1,242 @@
+data: {"type":"start","messageId":"JfjOcKEKovpFQT7x"}
+
+data: {"type":"start-step"}
+
+data: {"type":"start-step"}
+
+data: {"type":"reasoning-start","id":"reasoning-0"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"Ass"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"ume"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" user"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" has"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" signed"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" in"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" now"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"."}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" Let's"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" attempt"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" posting"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" again"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"."}
+
+data: {"type":"tool-input-start","toolCallId":"fc_44211841-e77b-4310-bce8-9339d74917f5","toolName":"postToLinkedIn"}
+
+data: {"type":"tool-input-delta","toolCallId":"fc_44211841-e77b-4310-bce8-9339d74917f5","inputTextDelta":"{\"content\":\"🚀 **Launching My New Web Development Course!**\\n\\nReady to turn ideas into pixel‑perfect sites? In this hands‑on program you’ll master:\\n\\n* Modern HTML \\u0026 CSS techniques\\n* JavaScript fundamentals + React hooks\\n* Performance \\u0026 SEO best practices\\n* Real‑world projects you can add to your portfolio\\n\\n💡 Whether you’re a junior dev or a seasoned designer looking to code, this course gives you the tools to build fast, accessible, and scalable web experiences.\\n\\nSpots are limited—secure yours today and let’s code the future together! 🚀\\n\\nWhat’s the biggest web‑dev challenge you’ve faced lately? Drop a comment, and I’ll share a tip in the next post.\",\"images\":[\"https://ai-image-api.xeven.workers.dev/img?prompt=Professional%20LinkedIn%20banner%20for%20a%20new%20web%20development%20course%20launch.%20Clean%20modern%20design%20with%20a%20laptop%20screen%20showing%20code%2C%20subtle%20abstract%20tech%20background%20bold%20text%3A%20%22New%20Web%20Development%20Course%22%20and%20tagline%20%22Build%20Fast%2C%20Accessible%20Websites%22.%20Color%20palette%3A%20teal%2C%20navy%2C%20white.%20Include%20subtle%20icon%20of%20HTML%2C%20CSS%2C%20JavaScript.%20Landscape%20orientation%20suitable%20for%20LinkedIn%20feed.\\u0026model=phoenix\\u0026guidance=6\\u0026negative_prompt=blurry,low%20quality,text%20overlay,watermark\\u0026height=627\\u0026width=1200\\u0026num_steps=40\"]}"}
+
+data: {"type":"data-postToLinkedIn","data":{"loading":true}}
+
+data: {"type":"data-postToLinkedIn","data":{"loading":false,"content":"🚀 **Launching My New Web Development Course!**\n\nReady to turn ideas into pixel‑perfect sites? In this hands‑on program you’ll master:\n\n* Modern HTML & CSS techniques\n* JavaScript fundamentals + React hooks\n* Performance & SEO best practices\n* Real‑world projects you can add to your portfolio\n\n💡 Whether you’re a junior dev or a seasoned designer looking to code, this course gives you the tools to build fast, accessible, and scalable web experiences.\n\nSpots are limited—secure yours today and let’s code the future together! 🚀\n\nWhat’s the biggest web‑dev challenge you’ve faced lately? Drop a comment, and I’ll share a tip in the next post.","images":["https://ai-image-api.xeven.workers.dev/img?prompt=Professional%20LinkedIn%20banner%20for%20a%20new%20web%20development%20course%20launch.%20Clean%20modern%20design%20with%20a%20laptop%20screen%20showing%20code%2C%20subtle%20abstract%20tech%20background%20bold%20text%3A%20%22New%20Web%20Development%20Course%22%20and%20tagline%20%22Build%20Fast%2C%20Accessible%20Websites%22.%20Color%20palette%3A%20teal%2C%20navy%2C%20white.%20Include%20subtle%20icon%20of%20HTML%2C%20CSS%2C%20JavaScript.%20Landscape%20orientation%20suitable%20for%20LinkedIn%20feed.&model=phoenix&guidance=6&negative_prompt=blurry,low%20quality,text%20overlay,watermark&height=627&width=1200&num_steps=40"],"needsAuth":true}}
+
+data: {"type":"tool-input-available","toolCallId":"fc_44211841-e77b-4310-bce8-9339d74917f5","toolName":"postToLinkedIn","input":{"content":"🚀 **Launching My New Web Development Course!**\n\nReady to turn ideas into pixel‑perfect sites? In this hands‑on program you’ll master:\n\n* Modern HTML & CSS techniques\n* JavaScript fundamentals + React hooks\n* Performance & SEO best practices\n* Real‑world projects you can add to your portfolio\n\n💡 Whether you’re a junior dev or a seasoned designer looking to code, this course gives you the tools to build fast, accessible, and scalable web experiences.\n\nSpots are limited—secure yours today and let’s code the future together! 🚀\n\nWhat’s the biggest web‑dev challenge you’ve faced lately? Drop a comment, and I’ll share a tip in the next post.","images":["https://ai-image-api.xeven.workers.dev/img?prompt=Professional%20LinkedIn%20banner%20for%20a%20new%20web%20development%20course%20launch.%20Clean%20modern%20design%20with%20a%20laptop%20screen%20showing%20code%2C%20subtle%20abstract%20tech%20background%20bold%20text%3A%20%22New%20Web%20Development%20Course%22%20and%20tagline%20%22Build%20Fast%2C%20Accessible%20Websites%22.%20Color%20palette%3A%20teal%2C%20navy%2C%20white.%20Include%20subtle%20icon%20of%20HTML%2C%20CSS%2C%20JavaScript.%20Landscape%20orientation%20suitable%20for%20LinkedIn%20feed.&model=phoenix&guidance=6&negative_prompt=blurry,low%20quality,text%20overlay,watermark&height=627&width=1200&num_steps=40"]}}
+
+data: {"type":"tool-output-available","toolCallId":"fc_44211841-e77b-4310-bce8-9339d74917f5","output":{"error":"Not authenticated"}}
+
+data: {"type":"reasoning-end","id":"reasoning-0"}
+
+data: {"type":"finish-step"}
+
+data: {"type":"start-step"}
+
+data: {"type":"reasoning-start","id":"reasoning-0"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"User"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" still"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" not"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" authenticated"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"."}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" We"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" cannot"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" proceed"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" without"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" authentication"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"."}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" We"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" need"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" to"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" request"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" user"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" to"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" sign"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" in"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" properly"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" via"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" the"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" platform"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"."}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" Perhaps"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" ask"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" them"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" to"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" sign"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" in"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" via"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" the"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":" interface"}
+
+data: {"type":"reasoning-delta","id":"reasoning-0","delta":"."}
+
+data: {"type":"text-start","id":"txt-0"}
+
+data: {"type":"text-delta","id":"txt-0","delta":"I’m "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"still "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"not "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"connected "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"to "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"your "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"LinkedIn "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"account, "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"so "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"I "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"can’t "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"push "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"update "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"just "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"yet. "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"Please "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"sign "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"in "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"to "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"LinkedIn "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"through "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"platform’s "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"connector "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"(or "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"let "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"system "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"know "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"you’re "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"authenticated), "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"and "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"then "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"give "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"me "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"word "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"“post” "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"again. "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"As "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"soon "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"as "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"authentication "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"is "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"in "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"place, "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"I’ll "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"publish "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"the "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"content "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"instantly. "}
+
+data: {"type":"text-delta","id":"txt-0","delta":"😊"}
+
+data: {"type":"reasoning-end","id":"reasoning-0"}
+
+data: {"type":"text-end","id":"txt-0"}
+
+data: {"type":"finish-step"}
+
+data: {"type":"finish"}
+
+data: [DONE]
+
