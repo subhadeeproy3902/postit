@@ -73,7 +73,6 @@ BEHAVIOR SUMMARY
 - Handles images/screenshots smoothly
 `
 
-
 export async function POST(req: Request) {
   try {
     const {

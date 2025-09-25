@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 type LinkedInContentCardProps = {
   title?: string;
@@ -32,16 +33,24 @@ const LinkedInContentCard: React.FC<LinkedInContentCardProps> = ({
   };
 
   return (
-    <div
+    <motion.div
       role="button"
       tabIndex={0}
       aria-pressed={isActive}
       onClick={handleActivate}
       onKeyDown={onKeyDown}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{
+        duration: 0.2,
+        ease: [0.4, 0, 0.2, 1]
+      }}
       className={cn(
         "group relative overflow-hidden rounded-xl border bg-transparent backdrop-blur-sm",
         "transition-all duration-300 ease-out",
-        "hover:shadow-lg hover:-translate-y-0.5",
+        "hover:shadow-lg",
         "border-border hover:border-[#e5e5e5]/15",
         isActive ? "ring-2 ring-[#e5e5e5]/20 border-[#e5e5e5]/20" : "ring-0"
       )}
@@ -152,7 +161,7 @@ const LinkedInContentCard: React.FC<LinkedInContentCardProps> = ({
           "transition-colors"
         )}
       />
-    </div>
+    </motion.div>
   );
 };
 

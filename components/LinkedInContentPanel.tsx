@@ -6,6 +6,7 @@ import { Copy, Loader2, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { SimpleEditor } from "./tiptap-templates/simple/simple-editor";
+import { StreamingIndicator, SmoothTransition } from './LoadingState';
 
 type LinkedInContentPanelProps = {
   id: string;
@@ -103,20 +104,20 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
       </div>
 
       {/* Status */}
-      {status && status !== "success" && (
+      <SmoothTransition isVisible={status !== undefined && status !== "success"}>
         <div className="p-4 border-b bg-[#e5e5e5]/5">
           <div className="flex items-center gap-2">
-            {(status === "processing" || status === "streaming") && (
-              <Loader2 className="h-4 w-4 animate-spin text-[#e5e5e5]/60" />
-            )}
-            <span className="text-sm text-[#e5e5e5]/70">
-              {status === "processing" && "Generating LinkedIn content..."}
-              {status === "streaming" && "Streaming content..."}
-              {status === "error" && "Error generating content"}
-            </span>
+            <StreamingIndicator
+              isStreaming={status === "processing" || status === "streaming"}
+              message={
+                status === "processing" ? "Generating LinkedIn content..." :
+                status === "streaming" ? "Streaming content..." :
+                status === "error" ? "Error generating content" : ""
+              }
+            />
           </div>
         </div>
-      )}
+      </SmoothTransition>
 
       {/* Editor */}
       <div className="flex-1 overflow-hidden">
@@ -127,7 +128,7 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
       </div>
 
       {/* Actions */}
-      {editorContent && status === "success" && (
+      <SmoothTransition isVisible={editorContent !== undefined && status === "success"}>
         <div className="p-4 border-t bg-[#e5e5e5]/5">
           <div className="flex gap-2 justify-end">
             <Button
@@ -135,13 +136,16 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
               size="sm"
               onClick={handleCopy}
               disabled={!editorContent}
+              className="transition-all duration-200 ease-in-out hover:scale-105"
             >
-              <Copy className="h-4 w-4 mr-2" />
-              {copied ? "Copied!" : "Copy"}
+              <div className="flex items-center transition-all duration-200">
+                <Copy className={cn("h-4 w-4 mr-2 transition-transform duration-200", copied && "scale-110")} />
+                <span className="transition-all duration-200">{copied ? "Copied!" : "Copy"}</span>
+              </div>
             </Button>
           </div>
         </div>
-      )}
+      </SmoothTransition>
     </div>
   );
 };
