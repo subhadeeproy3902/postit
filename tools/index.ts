@@ -133,7 +133,7 @@ export const postToLinkedIn = (
   writer: UIMessageStreamWriter<UIMessage<never, MyDataPart>>,
   session: Session | null
 ) => tool({
-  description: "Post the content to LinkedIn",
+  description: "Post the content to LinkedIn if the user is signed in",
   inputSchema: z.object({
     content: z.string().describe("Content to post to LinkedIn"),
     images: z.array(z.string()).describe("Images to post to LinkedIn").optional(),
@@ -173,24 +173,20 @@ export const postToLinkedIn = (
           try {
             // Check if it's a URL (from AI generation or screenshots)
             if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-              try {
-                // Download the image and convert to base64
-                const response = await fetch(imageUrl);
-                if (response.ok) {
-                  const blob = await response.blob();
-                  const arrayBuffer = await blob.arrayBuffer();
-                  const base64 = Buffer.from(arrayBuffer).toString('base64');
+              // Download the image and convert to base64
+              const response = await fetch(imageUrl);
+              if (response.ok) {
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-                  processedMediaFiles.push({
-                    type: 'image',
-                    title: `AI Generated Image ${i + 1}`,
-                    fileBuffer: base64
-                  });
-                } else {
-                  console.warn(`Failed to download image from URL: ${imageUrl} - Status: ${response.status}`);
-                }
-              } catch (fetchError) {
-                console.warn(`Error fetching image from URL ${imageUrl}:`, fetchError);
+                processedMediaFiles.push({
+                  type: 'image',
+                  title: `AI Generated Image ${i + 1}`,
+                  fileBuffer: base64
+                });
+              } else {
+                console.warn(`Failed to download image from URL: ${imageUrl}`);
               }
             } else if (imageUrl.startsWith('data:')) {
               // It's already a base64 data URL, extract the base64 part
@@ -219,23 +215,17 @@ export const postToLinkedIn = (
           const videoUrl = video[i];
           try {
             if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
-              try {
-                const response = await fetch(videoUrl);
-                if (response.ok) {
-                  const blob = await response.blob();
-                  const arrayBuffer = await blob.arrayBuffer();
-                  const base64 = Buffer.from(arrayBuffer).toString('base64');
+              const response = await fetch(videoUrl);
+              if (response.ok) {
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-                  processedMediaFiles.push({
-                    type: 'video',
-                    title: `Video ${i + 1}`,
-                    fileBuffer: base64
-                  });
-                } else {
-                  console.warn(`Failed to download video from URL: ${videoUrl} - Status: ${response.status}`);
-                }
-              } catch (fetchError) {
-                console.warn(`Error fetching video from URL ${videoUrl}:`, fetchError);
+                processedMediaFiles.push({
+                  type: 'video',
+                  title: `Video ${i + 1}`,
+                  fileBuffer: base64
+                });
               }
             } else if (videoUrl.startsWith('data:')) {
               const base64 = videoUrl.split(',')[1];
@@ -257,15 +247,9 @@ export const postToLinkedIn = (
         }
       }
 
-      // Construct absolute URL for server-side fetch
-      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-      const host = process.env.VERCEL_URL || process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, '') || 'localhost:3001';
-      const baseUrl = `${protocol}://${host}`;
-      const apiUrl = `${baseUrl}/api/linkedin/post`;
-
-      console.log('Posting to LinkedIn API URL:', apiUrl);
-
-      const postResult = await fetch(apiUrl, {
+      // Use absolute URL for server-side fetch
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      const postResult = await fetch(`${baseUrl}/api/post`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
