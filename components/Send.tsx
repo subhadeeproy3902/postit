@@ -45,15 +45,22 @@ export default function SendComponent({ visitorId }: SendComponentProps) {
     if (!visitorId || !message.trim() || isLoading) return;
     setIsLoading(true);
 
-    const id = generateId();
-    const title = message.trim().substring(0, 50) + (message.trim().length > 50 ? '...' : '');
+    try {
+      const id = generateId();
+      const title = message.trim().substring(0, 50) + (message.trim().length > 50 ? '...' : '');
 
-    // Store data in sessionStorage for instant access
-    sessionStorage.setItem(`initial_message_${id}`, message.trim());
-    sessionStorage.setItem(`chat_title_${id}`, title);
-    sessionStorage.setItem(`visitor_id_${id}`, visitorId);
-    router.push(`/${id}`);
-    createChat(visitorId, title, id);
+      // Store data in sessionStorage for instant access
+      sessionStorage.setItem(`initial_message_${id}`, message.trim());
+      sessionStorage.setItem(`chat_title_${id}`, title);
+      sessionStorage.setItem(`visitor_id_${id}`, visitorId);
+
+      // Create chat first, then navigate
+      await createChat(visitorId, title, id);
+      router.push(`/${id}`);
+    } catch (error) {
+      console.error('Error creating chat:', error);
+      setIsLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

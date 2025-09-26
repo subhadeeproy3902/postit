@@ -68,7 +68,7 @@ export default function Agent({
     });
   }, []);
 
-  const { status, messages, sendMessage } =
+  const { status, messages, sendMessage, setMessages, addToolResult } =
     useChat<MyUIMessage>({
       id: chatId,
       messages: initialMessages, // initial messages if provided
@@ -76,17 +76,64 @@ export default function Agent({
         api: "/api/chat",
         prepareSendMessagesRequest: ({ messages }) => {
           const lastMessage = messages[messages.length - 1];
+
+          // Find the latest LinkedIn content in the conversation for posting accuracy
+          let latestContent = null;
+          for (let i = messages.length - 1; i >= 0; i--) {
+            const message = messages[i];
+            for (const part of message.parts) {
+              if (part.type === 'data-linkedInContent' && part.data?.content) {
+                latestContent = part.data.content;
+                break;
+              }
+            }
+            if (latestContent) break;
+          }
+
           return {
             body: {
               message: lastMessage,
               chatId: chatId,
               visitorId: visitorId,
               session: session,
+              // Include the latest content if found for posting accuracy
+              updatedContent: latestContent,
             },
           };
         },
       }),
     });
+
+  // Handle when content is saved in the editor - Update content in conversation
+  const handleContentSaved = useCallback((updatedContent: string) => {
+    // Find the latest LinkedIn content ID in the conversation
+    let contentId = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      for (const part of message.parts) {
+        if (part.type === 'data-linkedInContent' && part.id) {
+          contentId = part.id;
+          break;
+        }
+      }
+      if (contentId) break;
+    }
+
+    if (contentId && addToolResult) {
+      // Use addToolResult to update the content in the conversation
+      addToolResult({
+        tool: 'updateContent',
+        toolCallId: contentId,
+        output: {
+          content: updatedContent,
+          topic: "Updated Content",
+          tone: "professional",
+          contentId: contentId,
+          updated: true,
+        }
+      });
+    }
+  }, [messages, addToolResult]);
 
   // Memoized function to get opened content data
   const getOpenedContentData = useCallback(() => {
@@ -435,6 +482,21 @@ export default function Agent({
                   tone={openedContent.tone}
                   status={openedContent.status}
                   onClose={handleCloseContent}
+                  chatId={chatId}
+                  messageId={(() => {
+                    // Find the message that contains this content
+                    for (const message of messages) {
+                      for (const part of message.parts) {
+                        if (part.type === 'data-linkedInContent' && part.id === openedContentId) {
+                          return message.id;
+                        }
+                      }
+                    }
+                    return undefined;
+                  })()}
+                  messages={messages}
+                  setMessages={setMessages}
+                  onContentSaved={handleContentSaved}
                 />
               </motion.div>
             )}

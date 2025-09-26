@@ -423,10 +423,63 @@ export type getLinkedInContentOutput = InferToolOutput<
   ReturnType<typeof getLinkedInContent>
 >;
 
+export const updateContent = (
+  writer: UIMessageStreamWriter<UIMessage<never, MyDataPart>>
+) =>
+  tool({
+    description:
+      "Update existing LinkedIn content with new edited content. Use this when content has been edited and needs to be updated for posting.",
+    inputSchema: z.object({
+      contentId: z
+        .string()
+        .describe("The ID of the content to update"),
+      updatedContent: z
+        .string()
+        .describe("The new updated content"),
+      topic: z
+        .string()
+        .optional()
+        .describe("Updated topic if changed"),
+      tone: z
+        .enum(["professional", "casual", "inspirational", "educational", "promotional"])
+        .optional()
+        .describe("Updated tone if changed"),
+    }),
+    execute: async ({ contentId, updatedContent, topic, tone }) => {
+      // Write the updated content to the stream
+      writer.write({
+        type: "data-linkedInContent",
+        id: contentId,
+        data: {
+          status: "success",
+          content: updatedContent,
+          topic: topic || "Updated Content",
+          tone: tone || "professional",
+        },
+      });
+
+      return {
+        content: updatedContent,
+        topic: topic || "Updated Content",
+        tone: tone || "professional",
+        contentId,
+        updated: true,
+      };
+    },
+  });
+
+export type updateContentInput = InferToolInput<
+  ReturnType<typeof updateContent>
+>;
+export type updateContentOutput = InferToolOutput<
+  ReturnType<typeof updateContent>
+>;
+
 export const tools = (writer: UIMessageStreamWriter, session: Session | null = null) => ({
   getAIGeneratedImage: getAIGeneratedImage(writer),
   getWebsiteScreenshot: getWebsiteScreenshot(writer),
   postToLinkedIn: postToLinkedIn(writer, session),
   getLinkedInContent: getLinkedInContent(writer),
+  updateContent: updateContent(writer),
 });
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { redirect, useRouter } from "next/navigation";
+import { redirect, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { Plus, Sparkles, Trash2, MoreHorizontal, Share, Edit, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,11 +64,60 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [openDropdowns, setOpenDropdowns] = useState<{ [chatId: string]: boolean }>({});
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (visitorId) {
       loadChats();
     }
+  }, [visitorId]);
+
+  // Refresh chats when pathname changes (to detect new chats)
+  useEffect(() => {
+    if (visitorId && pathname && pathname !== '/') {
+      // Extract chat ID from pathname
+      const chatId = pathname.slice(1); // Remove leading slash
+
+      // Check if this chat ID exists in our current chat list
+      const chatExists = allChats.some(chat => chat.id === chatId);
+
+      // If the chat doesn't exist and it looks like a valid chat ID, refresh the list
+      if (!chatExists && chatId.length > 0 && !chatId.includes('/')) {
+        // Add a small delay to ensure the chat has been created in the database
+        const timeoutId = setTimeout(() => {
+          loadChats();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+      }
+    }
+  }, [pathname, visitorId, allChats]);
+
+  // Periodic refresh to catch any missed updates (every 30 seconds when tab is active)
+  useEffect(() => {
+    if (!visitorId) return;
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Tab became active, refresh chats
+        loadChats();
+      }
+    };
+
+    // Refresh when tab becomes visible
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Periodic refresh every 30 seconds when tab is active
+    const intervalId = setInterval(() => {
+      if (!document.hidden) {
+        loadChats();
+      }
+    }, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(intervalId);
+    };
   }, [visitorId]);
 
   const handleSearch = (query: string) => {
