@@ -106,9 +106,6 @@ export async function POST(req: Request) {
           type: "start",
           messageId: generateId(),
         });
-        writer.write({
-          type: "start-step",
-        });
       }
 
       const result = streamText({

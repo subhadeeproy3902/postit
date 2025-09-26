@@ -373,7 +373,7 @@ export const getLinkedInContent = (
           },
         ],
         experimental_transform: smoothStream({
-          delayInMs: 30,
+          delayInMs: 50,
           chunking: "word",
         })
       });
