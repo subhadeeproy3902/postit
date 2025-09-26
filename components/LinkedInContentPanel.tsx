@@ -21,7 +21,7 @@ type LinkedInContentPanelProps = {
   messageId?: string;
   messages?: MyUIMessage[];
   setMessages?: (messages: MyUIMessage[]) => void;
-  onContentSaved?: (updatedContent: string) => void;
+  onContentSaved?: (updatedContent: string, contentId?: string) => void;
 };
 
 const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
@@ -42,10 +42,20 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
   const [copied, setCopied] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const [lastContentId, setLastContentId] = React.useState(id);
+
+  // Reset editor content when switching to a different document
+  React.useEffect(() => {
+    if (id !== lastContentId) {
+      setEditorContent(content || "");
+      setHasUnsavedChanges(false);
+      setLastContentId(id);
+    }
+  }, [id, lastContentId, content]);
 
   // Update editor content when content prop changes (streaming)
   React.useEffect(() => {
-    if (content !== undefined && content !== editorContent) {
+    if (content !== undefined && content !== editorContent && id === lastContentId) {
       // Only update if status is processing or streaming to allow user editing
       if (status === "processing" || status === "streaming") {
         setEditorContent(content);
@@ -54,7 +64,7 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
         setEditorContent(content);
       }
     }
-  }, [content, editorContent, status]);
+  }, [content, editorContent, status, id, lastContentId]);
 
   const handleCopy = React.useCallback(async () => {
     if (!editorContent) return;
@@ -145,7 +155,7 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
 
         // Notify parent component about the saved content
         if (onContentSaved) {
-          onContentSaved(editorContent);
+          onContentSaved(editorContent, id);
         }
       }
     } catch (error) {

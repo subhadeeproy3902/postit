@@ -30,6 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSession } from 'next-auth/react';
 import LinkedInContentCard from '@/components/LinkedInContentCard';
 import LinkedInContentPanel from '@/components/LinkedInContentPanel';
+import { LinkedInPostSuccess } from '@/components/LinkedInPostSuccess';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import { LoadingState, OptimisticWrapper, StreamingIndicator, SmoothTransition } from './LoadingState';
@@ -41,6 +42,8 @@ export default function Agent({
   const [input, setInput] = useState('');
   const [isLive, setIsLive] = useState(false);
   const [openedContentId, setOpenedContentId] = useState<string | null>(null);
+  const [lastUpdatedContent, setLastUpdatedContent] = useState<{ contentId: string, content: string } | null>(null);
+
   const { visitorId } = useVisitorId();
   const { setIsLiveChat } = useAuth();
   const { data: session } = useSession();
@@ -77,27 +80,15 @@ export default function Agent({
         prepareSendMessagesRequest: ({ messages }) => {
           const lastMessage = messages[messages.length - 1];
 
-          // Find the latest LinkedIn content in the conversation for posting accuracy
-          let latestContent = null;
-          for (let i = messages.length - 1; i >= 0; i--) {
-            const message = messages[i];
-            for (const part of message.parts) {
-              if (part.type === 'data-linkedInContent' && part.data?.content) {
-                latestContent = part.data.content;
-                break;
-              }
-            }
-            if (latestContent) break;
-          }
-
           return {
             body: {
               message: lastMessage,
               chatId: chatId,
               visitorId: visitorId,
               session: session,
-              // Include the latest content if found for posting accuracy
-              updatedContent: latestContent,
+              // Send the last updated content if available
+              updatedContent: lastUpdatedContent?.content || null,
+              updatedContentId: lastUpdatedContent?.contentId || null,
             },
           };
         },
@@ -105,35 +96,30 @@ export default function Agent({
     });
 
   // Handle when content is saved in the editor - Update content in conversation
-  const handleContentSaved = useCallback((updatedContent: string) => {
-    // Find the latest LinkedIn content ID in the conversation
-    let contentId = null;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      for (const part of message.parts) {
-        if (part.type === 'data-linkedInContent' && part.id) {
-          contentId = part.id;
-          break;
-        }
-      }
-      if (contentId) break;
-    }
+  const handleContentSaved = useCallback((updatedContent: string, specificContentId?: string) => {
+    // Use the specific content ID if provided, otherwise find the currently opened content ID
+    const contentId = specificContentId || openedContentId;
 
-    if (contentId && addToolResult) {
-      // Use addToolResult to update the content in the conversation
-      addToolResult({
-        tool: 'updateContent',
-        toolCallId: contentId,
-        output: {
-          content: updatedContent,
-          topic: "Updated Content",
-          tone: "professional",
-          contentId: contentId,
-          updated: true,
-        }
-      });
+    if (contentId) {
+      // Track the last updated content
+      setLastUpdatedContent({ contentId, content: updatedContent });
+
+      if (addToolResult) {
+        // Use addToolResult to update the content in the conversation
+        addToolResult({
+          tool: 'updateContent',
+          toolCallId: contentId,
+          output: {
+            content: updatedContent,
+            topic: "Updated Content",
+            tone: "professional",
+            contentId: contentId,
+            updated: true,
+          }
+        });
+      }
     }
-  }, [messages, addToolResult]);
+  }, [openedContentId, addToolResult]);
 
   // Memoized function to get opened content data
   const getOpenedContentData = useCallback(() => {
@@ -328,12 +314,13 @@ export default function Agent({
                                           </span>
                                         )
                                       )
-                                        : part.output && 'postId' in part.output ? (
-                                          <span key={i} className="text-green-600">
-                                            Successfully posted to LinkedIn! Post ID: {part.output.postId}
-                                          </span>
+                                        : part.output && (
+                                          <LinkedInPostSuccess
+                                            key={i}
+                                            postId={part.output.postId as string}
+                                            postUrl={part.output.postUrl as string}
+                                          />
                                         )
-                                          : null
                                     )
 
                                   case "tool-getAIGeneratedImage":

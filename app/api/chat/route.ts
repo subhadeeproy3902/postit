@@ -51,10 +51,12 @@ CORE RULES
    - If content was updated via updateContent tool, use that updated content for posting
 
    📝 HANDLING "I UPDATED THE CONTENT" SCENARIOS:
-   - When user says they updated content, first check conversation for recent updateContent tool results
-   - If updateContent tool results exist, use that content for posting (don't ask for content again)
-   - Only ask for updated content if no updateContent tool results are found in conversation
-   - Remember: Content edited in the UI automatically creates updateContent tool results
+   - When user mentions updating content AND wants to post (phrases like "updated it and post", "I updated the content, post it", etc.), first check for updated content in system context
+   - If updated content is provided in system context, use that content for posting (do NOT ask for content again)
+   - Also check conversation for recent updateContent tool results
+   - If updateContent tool results exist, use that content for posting (no need to ask for content again)
+   - Only ask for updated content if no updateContent tool results are found AND no updated content in system context
+   - Remember: Content edited in the UI automatically creates updateContent tool results AND provides updated content in system context
 
 4. AI Images & Website Screenshots - STRICT RULES:
    - NEVER show images in your text response.
@@ -86,10 +88,12 @@ TOOL USAGE GUIDELINES
 📤 postToLinkedIn: Use ONLY after explicit user confirmation to post
 
 🔍 CONTENT UPDATE DETECTION:
-- When user says "I updated the content" or similar, first scan conversation for updateContent tool results
+- When user wants to post ("post it", "post to linkedin", "updated it and post", "post again", "post it again"), ALWAYS check if updated content is provided in system context FIRST
+- If updated content is provided in system context, use that content for posting (do NOT ask for content again)
+- Also scan conversation for updateContent tool results
 - If updateContent results exist, use that content for posting (no need to ask for content again)
-- Only ask for updated content if no updateContent tool results are found
-- Content edited in UI automatically creates updateContent tool results in conversation
+- Only ask for updated content if BOTH conditions are false: no updateContent tool results found AND no updated content in system context
+- Content edited in UI automatically creates updateContent tool results AND provides updated content in system context
 
 -------------------------------------
 STRICT PRIORITIES
@@ -143,12 +147,14 @@ export async function POST(req: Request) {
       visitorId,
       session,
       updatedContent,
+      updatedContentId,
     }: {
       message: MyUIMessage;
       chatId: string;
       visitorId?: string;
       session: Session | null;
       updatedContent?: string;
+      updatedContentId?: string;
     } = await req.json();
 
     // Validate required fields
@@ -179,22 +185,25 @@ export async function POST(req: Request) {
         4. Ensure image consistency - use the exact image generated in this conversation
         5. Always confirm before posting - wait for explicit "yes" from user
         6. NEVER generate content in your text response - only use tools
-        7. IMPORTANT: When user says "I updated the content", check for updateContent tool results first before asking for content`
+        7. IMPORTANT: When user mentions updating content AND wants to post, check for updated content in system context FIRST, then updateContent tool results, before asking for content
+        8. CRITICAL: If system context contains "CONTENT UPDATE DETECTED" message, use that updated content for posting - do NOT ask for content again`
       }]
     };
 
     processedMessages = [...messages, systemContextMessage];
 
     // If there's updated content, add it as additional context (not saved to DB)
-    if (updatedContent) {
+    if (updatedContent && updatedContentId) {
       const updatedContentMessage: MyUIMessage = {
         id: generateId(),
         role: 'system',
         parts: [{
           type: 'text',
-          text: `LATEST CONTENT AVAILABLE: The user has edited their LinkedIn content. When they say "I updated the content" or want to post, use this latest version: ${updatedContent}
+          text: `CONTENT UPDATE DETECTED: Content with ID "${updatedContentId}" has been edited by the user.
 
-IMPORTANT: Do not ask for updated content again - this IS the updated content. Use this for posting.`
+Updated content: ${updatedContent}
+
+CRITICAL: When user mentions posting to LinkedIn (including phrases like "post it", "post to linkedin", "updated it and post", "post again", "post it again", etc.), use this updated content for posting. Do NOT ask for content again - this IS the latest version that was just edited and saved.`
         }]
       };
       processedMessages = [...processedMessages, updatedContentMessage];
@@ -221,7 +230,6 @@ IMPORTANT: Do not ask for updated content again - this IS the updated content. U
           return {};
         },
         experimental_transform: smoothStream({
-          delayInMs: 30,
           chunking: "word",
         }),
       });

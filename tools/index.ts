@@ -12,24 +12,6 @@ import {
 import z from "zod/v4";
 import { Session } from "next-auth";
 import { groq } from "@ai-sdk/groq";
-import { toUnicodeVariant } from "unicode-text-styler";
-
-// Function to enhance LinkedIn content with Unicode styling
-const enhanceLinkedInContent = (content: string): string => {
-  // Apply subtle Unicode styling to make content more engaging
-  // Bold key phrases and important words
-  const enhancedContent = content
-    // Bold common LinkedIn keywords and phrases
-    .replace(/\b(LinkedIn|networking|professional|career|opportunity|growth|success|achievement|leadership|innovation|strategy|team|collaboration|experience|skills|expertise|industry|business|company|organization|project|results|impact|value|goals|objectives|vision|mission)\b/gi,
-      (match) => toUnicodeVariant(match, "bold"))
-    // Make hashtags more prominent with bold styling
-    .replace(/#(\w+)/g, (match, hashtag) => `#${toUnicodeVariant(hashtag, "bold")}`)
-    // Style call-to-action phrases
-    .replace(/\b(let's connect|reach out|comment below|share your thoughts|what do you think|join the conversation|follow for more|like and share)\b/gi,
-      (match) => toUnicodeVariant(match, "bold"));
-
-  return enhancedContent;
-};
 
 export const getAIGeneratedImage = (
   writer: UIMessageStreamWriter<UIMessage<never, MyDataPart>>
@@ -277,13 +259,23 @@ export const postToLinkedIn = (
 
       writer.write({
         type: "data-postToLinkedIn",
-        data: { loading: false, content, images, video, success: true, postId: result.postId },
+        data: {
+          loading: false,
+          content,
+          images,
+          video,
+          success: true,
+          postId: result.postId,
+          postUrl: result.postUrl || `https://www.linkedin.com/feed/update/${result.postId}/`
+        },
       });
 
-      // Return only the post ID on success
+      // Return the post ID and URL on success
       if (result.success && result.postId) {
         return {
           postId: result.postId,
+          postUrl: result.postUrl || `https://www.linkedin.com/feed/update/${result.postId}/`,
+          success: true,
         };
       } else {
         return {
@@ -373,7 +365,7 @@ export const getLinkedInContent = (
           },
         ],
         experimental_transform: smoothStream({
-          delayInMs: 50,
+          delayInMs: 80,
           chunking: "word",
         })
       });
@@ -474,6 +466,8 @@ export type updateContentInput = InferToolInput<
 export type updateContentOutput = InferToolOutput<
   ReturnType<typeof updateContent>
 >;
+
+
 
 export const tools = (writer: UIMessageStreamWriter, session: Session | null = null) => ({
   getAIGeneratedImage: getAIGeneratedImage(writer),

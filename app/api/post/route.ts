@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { toUnicodeVariant } from "unicode-text-styler";
 
 // Register LinkedIn media upload and get asset URN + upload URL
 async function registerMediaUpload(accessToken: string, userUrn: string, mediaType: 'image' | 'video') {
@@ -131,7 +132,7 @@ async function createPost(accessToken: string, userUrn: string, content: string,
     specificContent: {
       'com.linkedin.ugc.ShareContent': {
         shareCommentary: { 
-          text: content 
+          text: toUnicodeVariant(content) 
         },
         shareMediaCategory: shareMediaCategory,
         ...(linkedInMedia.length > 0 && { media: linkedInMedia }),

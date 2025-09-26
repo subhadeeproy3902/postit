@@ -25,6 +25,12 @@ export const dataPartSchema = z.object({
     error: z.string().optional(),
     success: z.boolean().optional(),
     postId: z.string().optional(),
+    postUrl: z.string().optional(),
+  }),
+  sharePostModal: z.object({
+    postId: z.string(),
+    postUrl: z.string(),
+    isOpen: z.boolean().default(false),
   }),
   linkedInContent: z.object({
     status: z.enum(["processing", "streaming", "success", "error"]),
