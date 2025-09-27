@@ -29,46 +29,81 @@ export const upsertMessage = async ({
   chatId: string;
   message: MyUIMessage;
 }) => {
-  const mappedDBUIParts = mapUIMessagePartsToDBParts(message.parts, id);
+  // Validate inputs
+  if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
+    console.warn('Invalid chatId provided to upsertMessage:', chatId);
+    throw new Error('Invalid chatId provided');
+  }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .insert(messages)
-      .values({
-        chatId,
-        role: message.role,
-        id,
-      })
-      .onConflictDoUpdate({
-        target: messages.id,
-        set: {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    console.warn('Invalid message id provided to upsertMessage:', id);
+    throw new Error('Invalid message id provided');
+  }
+
+  try {
+    const mappedDBUIParts = mapUIMessagePartsToDBParts(message.parts, id);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(messages)
+        .values({
           chatId,
-        },
-      });
+          role: message.role,
+          id,
+        })
+        .onConflictDoUpdate({
+          target: messages.id,
+          set: {
+            chatId,
+          },
+        });
 
-    await tx.delete(parts).where(eq(parts.messageId, id));
-    if (mappedDBUIParts.length > 0) {
-      await tx.insert(parts).values(mappedDBUIParts);
-    }
-  });
+      await tx.delete(parts).where(eq(parts.messageId, id));
+      if (mappedDBUIParts.length > 0) {
+        await tx.insert(parts).values(mappedDBUIParts);
+      }
+    });
+  } catch (error) {
+    console.error('Error in upsertMessage:', { chatId, id, error });
+    throw error;
+  }
 };
 
 export const loadChat = async (chatId: string): Promise<MyUIMessage[]> => {
-  const result = await db.query.messages.findMany({
-    where: eq(messages.chatId, chatId),
-    with: {
-      parts: {
-        orderBy: (parts, { asc }) => [asc(parts.order)],
-      },
-    },
-    orderBy: (messages, { asc }) => [asc(messages.createdAt)],
-  });
+  // Validate chatId format first to prevent invalid queries
+  if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
+    console.warn('Invalid chatId provided to loadChat:', chatId);
+    return [];
+  }
 
-  return result.map((message) => ({
-    id: message.id,
-    role: message.role,
-    parts: message.parts.map((part) => mapDBPartToUIMessagePart(part)),
-  }));
+  try {
+    // First check if the chat exists to prevent unnecessary queries
+    const [chatExists] = await db.select({ id: chats.id }).from(chats).where(eq(chats.id, chatId)).limit(1);
+
+    if (!chatExists) {
+      console.warn('Chat not found:', chatId);
+      return [];
+    }
+
+    const result = await db.query.messages.findMany({
+      where: eq(messages.chatId, chatId),
+      with: {
+        parts: {
+          orderBy: (parts, { asc }) => [asc(parts.order)],
+        },
+      },
+      orderBy: (messages, { asc }) => [asc(messages.createdAt)],
+    });
+
+    return result.map((message) => ({
+      id: message.id,
+      role: message.role,
+      parts: message.parts.map((part) => mapDBPartToUIMessagePart(part)),
+    }));
+  } catch (error) {
+    console.error('Error loading chat:', chatId, error);
+    return [];
+  }
 };
 
 export const getChats = async (visitorId: string) => {
@@ -87,17 +122,31 @@ export const getPublicChat = async (chatId: string) => {
 };
 
 export const getChatWithAccess = async (chatId: string, visitorId?: string) => {
-  const [chat] = await db.select().from(chats).where(eq(chats.id, chatId));
+  // Validate chatId format first
+  if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
+    console.warn('Invalid chatId provided to getChatWithAccess:', chatId);
+    return null;
+  }
 
-  if (!chat) return null;
+  try {
+    const [chat] = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
 
-  // If chat is public, allow access
-  if (chat.isPublic) return chat;
+    if (!chat) {
+      console.warn('Chat not found in getChatWithAccess:', chatId);
+      return null;
+    }
 
-  // If chat is private, only allow access to the owner
-  if (chat.visitorId === visitorId) return chat;
+    // If chat is public, allow access
+    if (chat.isPublic) return chat;
 
-  return null;
+    // If chat is private, only allow access to the owner
+    if (chat.visitorId === visitorId) return chat;
+
+    return null;
+  } catch (error) {
+    console.error('Error in getChatWithAccess:', chatId, error);
+    return null;
+  }
 };
 
 export const deleteChat = async (chatId: string, visitorId: string) => {

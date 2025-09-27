@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import Agent from "@/components/Agent";
 import { loadChat } from "@/lib/db/actions";
@@ -23,6 +23,7 @@ export default function AIChatPage() {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isLoadingRef = useRef(false);
 
   // Check if this is a new chat from sessionStorage
   const storedVisitorId =
@@ -38,6 +39,23 @@ export default function AIChatPage() {
   useEffect(() => {
     const checkAccessAndLoadChat = async () => {
       if (visitorLoading) return;
+
+      // Prevent multiple simultaneous requests
+      if (isLoadingRef.current) {
+        console.log('Already loading, skipping request');
+        return;
+      }
+
+      // Validate chatId format first to prevent invalid requests
+      if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
+        console.warn('Invalid chatId:', chatId);
+        setHasAccess(false);
+        setError("Invalid chat ID");
+        setIsLoading(false);
+        return;
+      }
+
+      isLoadingRef.current = true;
 
       // If this is a new chat, set access immediately
       if (isNewChat) {
@@ -72,10 +90,16 @@ export default function AIChatPage() {
         setHasAccess(false);
       } finally {
         setIsLoading(false);
+        isLoadingRef.current = false;
       }
     };
 
-    checkAccessAndLoadChat();
+    // Debounce the function to prevent rapid successive calls
+    const timeoutId = setTimeout(checkAccessAndLoadChat, 100);
+    return () => {
+      clearTimeout(timeoutId);
+      isLoadingRef.current = false;
+    };
   }, [chatId, visitorId, visitorLoading, isNewChat]);
 
   // For new chats, show immediately without loading screen

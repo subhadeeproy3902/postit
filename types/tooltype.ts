@@ -2,7 +2,9 @@ import { tools } from "@/tools";
 import { InferUITools, JSONValue, UIMessage, UIMessagePart } from "ai";
 import z from "zod";
 
-export const metadataSchema = z.object({});
+export const metadataSchema = z.object({
+  documentId: z.string().optional(),
+});
 
 type MyMetadata = z.infer<typeof metadataSchema>;
 

@@ -10,7 +10,6 @@ import {
   smoothStream,
 } from "ai";
 import z from "zod/v4";
-import { Session } from "next-auth";
 import { groq } from "@ai-sdk/groq";
 
 export const getAIGeneratedImage = (
@@ -113,185 +112,24 @@ export type getWebsiteScreenshotOutput = InferToolOutput<
 
 export const postToLinkedIn = (
   writer: UIMessageStreamWriter<UIMessage<never, MyDataPart>>,
-  session: Session | null
 ) => tool({
-  description: "Post the content to LinkedIn if the user is signed in",
+  description: "Post content to LinkedIn. Content will be extracted from the current document in the editor.",
   inputSchema: z.object({
-    content: z.string().describe("Content to post to LinkedIn"),
+    documentId: z.string().describe("Document ID of the content to post. If not provided, will use the currently opened document or latest document.").optional(),
     images: z.array(z.string()).describe("Images to post to LinkedIn").optional(),
     video: z.array(z.string()).describe("Videos to post to LinkedIn").optional(),
   }),
 
-  execute: async ({ content, images, video }) => {
+  execute: async ({ documentId, images, video }) => {
     writer.write({
       type: "data-postToLinkedIn",
       data: { loading: true },
     });
-
-    // Check if authenticated - this is the "human in the loop" part
-    if (!session || !session.accessToken) {
-      writer.write({
-        type: "data-postToLinkedIn",
-        data: { loading: false, content, images, video, error: "Not authenticated" },
-      });
-
-      return {
-        error: "Not authenticated",
-      };
-    }
-
-    try {
-      // Process media files - convert URLs to LinkedIn API format
-      interface MediaFile {
-        type: 'image' | 'video';
-        title: string;
-        fileBuffer: string;
-      }
-      const processedMediaFiles: MediaFile[] = [];
-
-      if (images && images.length > 0) {
-        for (let i = 0; i < images.length; i++) {
-          const imageUrl = images[i];
-          try {
-            // Check if it's a URL (from AI generation or screenshots)
-            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-              // Download the image and convert to base64
-              const response = await fetch(imageUrl);
-              if (response.ok) {
-                const blob = await response.blob();
-                const arrayBuffer = await blob.arrayBuffer();
-                const base64 = Buffer.from(arrayBuffer).toString('base64');
-
-                processedMediaFiles.push({
-                  type: 'image',
-                  title: `AI Generated Image ${i + 1}`,
-                  fileBuffer: base64
-                });
-              } else {
-                console.warn(`Failed to download image from URL: ${imageUrl}`);
-              }
-            } else if (imageUrl.startsWith('data:')) {
-              // It's already a base64 data URL, extract the base64 part
-              const base64 = imageUrl.split(',')[1];
-              processedMediaFiles.push({
-                type: 'image',
-                title: `Image ${i + 1}`,
-                fileBuffer: base64
-              });
-            } else {
-              // Assume it's already base64
-              processedMediaFiles.push({
-                type: 'image',
-                title: `Image ${i + 1}`,
-                fileBuffer: imageUrl
-              });
-            }
-          } catch (error) {
-            console.warn(`Error processing image URL ${imageUrl}:`, error);
-          }
-        }
-      }
-
-      if (video && video.length > 0) {
-        for (let i = 0; i < video.length; i++) {
-          const videoUrl = video[i];
-          try {
-            if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
-              const response = await fetch(videoUrl);
-              if (response.ok) {
-                const blob = await response.blob();
-                const arrayBuffer = await blob.arrayBuffer();
-                const base64 = Buffer.from(arrayBuffer).toString('base64');
-
-                processedMediaFiles.push({
-                  type: 'video',
-                  title: `Video ${i + 1}`,
-                  fileBuffer: base64
-                });
-              }
-            } else if (videoUrl.startsWith('data:')) {
-              const base64 = videoUrl.split(',')[1];
-              processedMediaFiles.push({
-                type: 'video',
-                title: `Video ${i + 1}`,
-                fileBuffer: base64
-              });
-            } else {
-              processedMediaFiles.push({
-                type: 'video',
-                title: `Video ${i + 1}`,
-                fileBuffer: videoUrl
-              });
-            }
-          } catch (error) {
-            console.warn(`Error processing video URL ${videoUrl}:`, error);
-          }
-        }
-      }
-
-      // Use absolute URL for server-side fetch
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-      const postResult = await fetch(`${baseUrl}/api/post`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content,
-          mediaFiles: processedMediaFiles,
-          accessToken: session.accessToken,
-          linkedinId: session.linkedinId,
-        }),
-      });
-
-      if (!postResult.ok) {
-        const errorData = await postResult.json();
-        writer.write({
-          type: "data-postToLinkedIn",
-          data: { loading: false, content, images, video, error: errorData.error },
-        });
-        return {
-          error: errorData.error || `Failed to post to LinkedIn: ${postResult.statusText}`,
-        };
-      }
-
-      const result = await postResult.json();
-
-      writer.write({
-        type: "data-postToLinkedIn",
-        data: {
-          loading: false,
-          content,
-          images,
-          video,
-          success: true,
-          postId: result.postId,
-          postUrl: result.postUrl || `https://www.linkedin.com/feed/update/${result.postId}/`
-        },
-      });
-
-      // Return the post ID and URL on success
-      if (result.success && result.postId) {
-        return {
-          postId: result.postId,
-          postUrl: result.postUrl || `https://www.linkedin.com/feed/update/${result.postId}/`,
-          success: true,
-        };
-      } else {
-        return {
-          error: "Post was created but no post ID was returned",
-        };
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred while posting to LinkedIn";
-      writer.write({
-        type: "data-postToLinkedIn",
-        data: { loading: false, content, images, video, error: errorMessage },
-      });
-      return {
-        error: errorMessage,
-      };
-    }
+    return {
+      documentId,
+      images,
+      video,
+    };
   },
 });
 
@@ -469,10 +307,10 @@ export type updateContentOutput = InferToolOutput<
 
 
 
-export const tools = (writer: UIMessageStreamWriter, session: Session | null = null) => ({
+export const tools = (writer: UIMessageStreamWriter) => ({
   getAIGeneratedImage: getAIGeneratedImage(writer),
   getWebsiteScreenshot: getWebsiteScreenshot(writer),
-  postToLinkedIn: postToLinkedIn(writer, session),
+  postToLinkedIn: postToLinkedIn(writer),
   getLinkedInContent: getLinkedInContent(writer),
   updateContent: updateContent(writer),
 });

@@ -122,6 +122,10 @@ export const parts = pgTable(
     data_postToLinkedIn_content: varchar().$type<MyDataPart["postToLinkedIn"]["content"]>(),
     data_postToLinkedIn_images: jsonb().$type<MyDataPart["postToLinkedIn"]["images"]>(),
     data_postToLinkedIn_video: jsonb().$type<MyDataPart["postToLinkedIn"]["video"]>(),
+    data_postToLinkedIn_error: varchar().$type<MyDataPart["postToLinkedIn"]["error"]>(),
+    data_postToLinkedIn_success: boolean().$type<MyDataPart["postToLinkedIn"]["success"]>(),
+    data_postToLinkedIn_postId: varchar().$type<MyDataPart["postToLinkedIn"]["postId"]>(),
+    data_postToLinkedIn_postUrl: varchar().$type<MyDataPart["postToLinkedIn"]["postUrl"]>(),
 
     data_linkedInContent_id: varchar().$defaultFn(() => generateId()),
     data_linkedInContent_status: varchar().$type<MyDataPart["linkedInContent"]["status"]>(),

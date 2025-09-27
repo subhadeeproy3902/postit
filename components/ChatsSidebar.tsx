@@ -166,7 +166,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const lastMonth = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    return chats.reduce((groups: GroupedChats, chat) => {
+    const groups = chats.reduce((groups: GroupedChats, chat) => {
       const chatDate = new Date(chat.createdAt);
 
       if (chatDate >= today) {
@@ -189,6 +189,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       lastMonth: [],
       older: []
     });
+
+    // Sort each group in descending order (latest first)
+    const sortByDateDesc = (a: Chat, b: Chat) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+    groups.today.sort(sortByDateDesc);
+    groups.yesterday.sort(sortByDateDesc);
+    groups.lastWeek.sort(sortByDateDesc);
+    groups.lastMonth.sort(sortByDateDesc);
+    groups.older.sort(sortByDateDesc);
+
+    return groups;
   };
 
   const groupedChats = groupChatsByDate(filteredChats);

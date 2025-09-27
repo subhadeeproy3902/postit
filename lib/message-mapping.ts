@@ -171,6 +171,10 @@ export const mapUIMessagePartsToDBParts = (
           data_postToLinkedIn_content: part.data.content,
           data_postToLinkedIn_images: part.data.images,
           data_postToLinkedIn_video: part.data.video,
+          data_postToLinkedIn_error: part.data.error,
+          data_postToLinkedIn_success: part.data.success,
+          data_postToLinkedIn_postId: part.data.postId,
+          data_postToLinkedIn_postUrl: part.data.postUrl,
         };
       case "data-linkedInContent":
         return {
@@ -412,6 +416,10 @@ export const mapDBPartToUIMessagePart = (
           content: part.data_postToLinkedIn_content ?? undefined,
           images: part.data_postToLinkedIn_images ?? undefined,
           video: part.data_postToLinkedIn_video ?? undefined,
+          error: part.data_postToLinkedIn_error ?? undefined,
+          success: part.data_postToLinkedIn_success ?? undefined,
+          postId: part.data_postToLinkedIn_postId ?? undefined,
+          postUrl: part.data_postToLinkedIn_postUrl ?? undefined,
         },
         id: part.data_postToLinkedIn_id!,
       };

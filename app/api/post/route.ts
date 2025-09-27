@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { toUnicodeVariant } from "unicode-text-styler";
+import { convertMarkdownToLinkedInFormat } from '@/lib/markdown-to-unicode';
 
 // Register LinkedIn media upload and get asset URN + upload URL
 async function registerMediaUpload(accessToken: string, userUrn: string, mediaType: 'image' | 'video') {
@@ -131,8 +131,8 @@ async function createPost(accessToken: string, userUrn: string, content: string,
     lifecycleState: 'PUBLISHED',
     specificContent: {
       'com.linkedin.ugc.ShareContent': {
-        shareCommentary: { 
-          text: toUnicodeVariant(content) 
+        shareCommentary: {
+          text: convertMarkdownToLinkedInFormat(content)
         },
         shareMediaCategory: shareMediaCategory,
         ...(linkedInMedia.length > 0 && { media: linkedInMedia }),

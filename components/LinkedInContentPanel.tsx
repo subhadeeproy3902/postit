@@ -2,12 +2,15 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Copy, Loader2, X, Save } from "lucide-react";
+import { Copy, Loader2, X, Save, Send } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { SimpleEditor } from "./tiptap-templates/simple/simple-editor";
 import { StreamingIndicator, SmoothTransition } from './LoadingState';
 import { MyUIMessage } from "@/types/tooltype";
+import { useSession } from 'next-auth/react';
+import SignInWithLinkedIn from './SignInWithLinkedIn';
+import { postToLinkedIn } from '@/lib/post';
 
 type LinkedInContentPanelProps = {
   id: string;
@@ -43,6 +46,9 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
   const [isSaving, setIsSaving] = React.useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [lastContentId, setLastContentId] = React.useState(id);
+  const [isPublishing, setIsPublishing] = React.useState(false);
+
+  const { data: session } = useSession();
 
   // Reset editor content when switching to a different document
   React.useEffect(() => {
@@ -166,6 +172,60 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
     }
   }, [chatId, messageId, messages, setMessages, hasUnsavedChanges, editorContent, id, onContentSaved]);
 
+  const handlePublish = React.useCallback(async () => {
+    if (!session?.accessToken || !session?.linkedinId) {
+      toast.error('Please sign in with LinkedIn to publish');
+      return;
+    }
+
+    if (!editorContent.trim()) {
+      toast.error('Cannot publish empty content');
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      // Create a mock messages array with the current content
+      const mockMessages: MyUIMessage[] = [{
+        id: 'current-editor',
+        role: 'assistant',
+        parts: [{
+          type: 'data-linkedInContent',
+          id: id,
+          data: {
+            content: editorContent,
+            topic: topic || '',
+            tone: tone || '',
+            status: 'success'
+          }
+        }]
+      }];
+
+      const result = await postToLinkedIn({
+        messages: mockMessages,
+        openedContentId: id,
+        toolInput: {
+          documentId: id
+        },
+        session: {
+          accessToken: session.accessToken,
+          linkedinId: session.linkedinId,
+        },
+      });
+
+      if (result.success) {
+        toast.success('Content published to LinkedIn successfully!');
+      } else {
+        toast.error(result.error || 'Failed to publish to LinkedIn');
+      }
+    } catch (error) {
+      console.error('Error publishing to LinkedIn:', error);
+      toast.error('Failed to publish to LinkedIn');
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [session, editorContent, id, topic, tone]);
+
   return (
     <div className="h-full flex flex-col bg-background border-l">
       {/* Header */}
@@ -234,6 +294,35 @@ const LinkedInContentPanel: React.FC<LinkedInContentPanelProps> = ({
                 </div>
               </Button>
             )}
+
+            {/* Publish Button */}
+            {session?.accessToken ? (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handlePublish}
+                disabled={!editorContent.trim() || isPublishing}
+                className="transition-all duration-200 ease-in-out hover:scale-105 bg-[#0077B5] hover:bg-[#005885] text-white"
+              >
+                <div className="flex items-center transition-all duration-200">
+                  {isPublishing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  <span className="transition-all duration-200">
+                    {isPublishing ? "Publishing..." : "Publish"}
+                  </span>
+                </div>
+              </Button>
+            ) : (
+              <SignInWithLinkedIn
+                className="transition-all duration-200 ease-in-out hover:scale-105"
+                contentToPost={id}
+                chatId={chatId}
+              />
+            )}
+
             <Button
               variant="outline"
               size="sm"

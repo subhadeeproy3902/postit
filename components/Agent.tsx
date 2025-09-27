@@ -24,6 +24,8 @@ import { DefaultChatTransport } from 'ai';
 import { useVisitorId } from '@/hooks/use-visitor-id';
 import TextShimmer from './ui/text-shimmer';
 import { Action, Actions } from './ai-elements/actions';
+import { upsertMessage } from '@/lib/db/actions';
+import { postToLinkedIn } from '@/lib/post';
 
 import SignInWithLinkedIn from './SignInWithLinkedIn';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +35,7 @@ import LinkedInContentPanel from '@/components/LinkedInContentPanel';
 import { LinkedInPostSuccess } from '@/components/LinkedInPostSuccess';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
-import { LoadingState, OptimisticWrapper, StreamingIndicator, SmoothTransition } from './LoadingState';
+import { StreamingIndicator, SmoothTransition } from './LoadingState';
 
 export default function Agent({
   chatId,
@@ -93,6 +95,97 @@ export default function Agent({
           };
         },
       }),
+
+      // Handle postToLinkedIn tool calls on the client side
+      onToolCall: async ({ toolCall }) => {
+        console.log(toolCall)
+        if (toolCall.dynamic) {
+          return;
+        }
+
+        if (toolCall.toolName === 'postToLinkedIn') {
+          try {
+            // Type assertion for tool input
+            const input = toolCall.input as {
+              documentId?: string;
+              images?: string[];
+              video?: string[];
+            };
+
+            // Check authentication first
+            if (!session?.accessToken || !session?.linkedinId) {
+              addToolResult({
+                tool: 'postToLinkedIn',
+                toolCallId: toolCall.toolCallId,
+                output: {
+                  success: false,
+                  error: "Not authenticated",
+                  postId: undefined,
+                  postUrl: undefined,
+                },
+              });
+              return;
+            }
+
+            // Use the centralized posting logic
+            const result = await postToLinkedIn({
+              messages,
+              openedContentId: openedContentId || undefined,
+              toolInput: input,
+              session: {
+                accessToken: session.accessToken,
+                linkedinId: session.linkedinId,
+              },
+            });
+
+            // Add tool result
+            addToolResult({
+              tool: 'postToLinkedIn',
+              toolCallId: toolCall.toolCallId,
+              output: result,
+            });
+
+            // Handle success case
+            if (result.success) {
+              // Clear session storage after successful post
+              if (chatId) {
+                sessionStorage.removeItem(`pending_post_content_${chatId}`);
+                sessionStorage.removeItem(`pending_post_flag_${chatId}`);
+                sessionStorage.removeItem(`pending_post_timestamp_${chatId}`);
+              }
+
+              // Save success message to database
+              if (chatId) {
+                try {
+                  const successMessage = {
+                    id: `post-success-${Date.now()}`,
+                    role: 'assistant' as const,
+                    parts: [{
+                      type: 'text' as const,
+                      text: `Your post has been submitted to LinkedIn. Let me know if there's anything else you'd like to tweak or add!`
+                    }]
+                  };
+                  await upsertMessage({ chatId, id: successMessage.id, message: successMessage });
+                } catch (dbError) {
+                  console.warn('Failed to save success message to database:', dbError);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error in postToLinkedIn onToolCall:', error);
+            addToolResult({
+              tool: 'postToLinkedIn',
+              toolCallId: toolCall.toolCallId,
+              output: {
+                success: false,
+                error: error instanceof Error ? error.message : "Unknown error occurred while posting to LinkedIn",
+                postId: undefined,
+                postUrl: undefined,
+              },
+            });
+          }
+        }
+      },
     });
 
   // Handle when content is saved in the editor - Update content in conversation
@@ -190,6 +283,55 @@ export default function Agent({
     }
   }, [chatId, initialMessages, sendMessage]);
 
+  // Check for pending post after LinkedIn authentication
+  useEffect(() => {
+    if (chatId && session?.accessToken && !initialMessageSentRef.current) {
+      const pendingContent = sessionStorage.getItem(`pending_post_content_${chatId}`);
+      const pendingFlag = sessionStorage.getItem(`pending_post_flag_${chatId}`);
+      const pendingTimestamp = sessionStorage.getItem(`pending_post_timestamp_${chatId}`);
+
+      if (pendingContent && pendingFlag === 'true' && pendingTimestamp) {
+        // Check if the timestamp is recent (within 10 minutes)
+        const timestamp = parseInt(pendingTimestamp);
+        const now = Date.now();
+        const tenMinutes = 10 * 60 * 1000;
+
+        if (now - timestamp < tenMinutes) {
+          // Clean up session storage
+          sessionStorage.removeItem(`pending_post_content_${chatId}`);
+          sessionStorage.removeItem(`pending_post_flag_${chatId}`);
+          sessionStorage.removeItem(`pending_post_timestamp_${chatId}`);
+
+          // Add assistant message asking if user wants to post
+          setTimeout(async () => {
+            const assistantMessage = {
+              id: `post-prompt-${Date.now()}`,
+              role: 'assistant' as const,
+              parts: [{ type: 'text' as const, text: 'Would you like to post it now?' }]
+            };
+
+            // Add to UI
+            setMessages(prevMessages => [
+              ...prevMessages,
+              assistantMessage
+            ]);
+
+            // Save to database
+            try {
+              await upsertMessage({
+                id: assistantMessage.id,
+                chatId: chatId,
+                message: assistantMessage,
+              });
+            } catch (error) {
+              console.error('Failed to save assistant message to database:', error);
+            }
+          }, 1000); // Give time for the page to load
+        }
+      }
+    }
+  }, [chatId, session?.accessToken, setMessages]);
+
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 60,
     maxHeight: 200,
@@ -203,7 +345,8 @@ export default function Agent({
 
     sendMessage({
       role: 'user',
-      parts: [{ type: 'text', text: input }]
+      parts: [{ type: 'text', text: input }],
+      metadata: { documentId: openedContentId || undefined }
     });
     setInput('');
     adjustHeight(true);
@@ -277,50 +420,34 @@ export default function Agent({
 
                                   //  "file" | "step-start" | "text" | "reasoning" | "dynamic-tool" | "source-url" | "source-document" | "data-aiImage" | "data-websiteScreenshot" | "data-postToLinkedIn" | "tool-postToLinkedIn" | "tool-getAIGeneratedImage" | "tool-getWebsiteScreenshot"
 
-                                  // (parameter) part: UIMessagePart<{
-                                  // aiImage: {
-                                  //     loading: boolean;
-                                  //     image?: string | undefined;
-                                  //     description?: string | undefined;
-                                  //     dimensions?: {
-                                  //         width: number;
-                                  //         height: number;
-                                  //     } | undefined;
-                                  // };
-                                  // websiteScreenshot: {
-                                  //     loading: boolean;
-                                  //     image?: string | undefined;
-                                  // };
-                                  // postToLinkedIn: {
-                                  //     loading: boolean;
-                                  //     content?: string | undefined;
-                                  //     images?: string[] | undefined;
-                                  //     video?: string[] | undefined;
-                                  // };
-
-                                  // data: {"type":"tool-output-available","toolCallId":"fc_d86afbba-f1b5-4def-a03a-cdc1b663d471","output":{"error":"Not authenticated"}}
-
-
                                   case "tool-postToLinkedIn":
                                     return (
                                       part.output && 'error' in part.output ? (
                                         part.output.error === "Not authenticated" ? (
                                           <div className='flex flex-col gap-3' key={i}>
-                                            <SignInWithLinkedIn className="w-fit" isHistorical={isHistoricalMessage} />
+                                            <SignInWithLinkedIn
+                                              className="w-fit"
+                                              isHistorical={isHistoricalMessage}
+                                              contentToPost={part.input.documentId}
+                                              chatId={chatId}
+                                            />
                                           </div>
                                         ) : (
                                           <span key={i} className="text-red-600">
-                                            Error: {part.output.error}
+                                            Error: {(part.output as { error?: string }).error || 'Unknown error'}
                                           </span>
                                         )
                                       )
-                                        : part.output && (
-                                          <LinkedInPostSuccess
-                                            key={i}
-                                            postId={part.output.postId as string}
-                                            postUrl={part.output.postUrl as string}
-                                          />
-                                        )
+                                        : part.output && (() => {
+                                          const output = part.output as { success?: boolean; postId?: string; postUrl?: string; error?: string };
+                                          return output.success && output.postId && output.postId !== "handled-by-ontoolcall" && (
+                                            <LinkedInPostSuccess
+                                              key={i}
+                                              postId={output.postId}
+                                              postUrl={output.postUrl || `https://www.linkedin.com/feed/update/${output.postId}/`}
+                                            />
+                                          );
+                                        })()
                                     )
 
                                   case "tool-getAIGeneratedImage":

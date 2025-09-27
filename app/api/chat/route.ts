@@ -13,6 +13,45 @@ import {
 } from "ai";
 import { Session } from "next-auth";
 
+// Helper functions for content detection
+function findLatestLinkedInContent(messages: MyUIMessage[]): string | null {
+  // Search through messages in reverse order to find the latest LinkedIn content
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    for (const part of message.parts) {
+      if (part.type === 'data-linkedInContent' && part.data?.content) {
+        return part.data.content;
+      }
+    }
+  }
+  return null;
+}
+
+function checkForUpdateContentResults(messages: MyUIMessage[]): boolean {
+  // Check if there are any updateContent tool results in the conversation
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (part.type === 'tool-updateContent' && part.output) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function getLatestUpdateContentResult(messages: MyUIMessage[]): { content: string } | null {
+  // Search through messages in reverse order to find the latest updateContent result
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    for (const part of message.parts) {
+      if (part.type === 'tool-updateContent' && part.output && 'content' in part.output) {
+        return { content: part.output.content as string };
+      }
+    }
+  }
+  return null;
+}
+
 const system = `
 You are a conversational AI assistant with special tools. 
 Your job is to always reply naturally, assist the user, and call tools only when strictly needed. 
@@ -30,18 +69,45 @@ CORE RULES
    - You only act as if "things happen" naturally.
    - No explanations like "Here’s your image [Blocked]".
 
-3. CRITICAL LINKEDIN POSTING RULES - NO EXCEPTIONS:
-   - NEVER EVER generate LinkedIn content directly in your reply.
-   - NEVER include any LinkedIn post content in your text response.
-   - ONLY use the LinkedIn content tool when the user explicitly wants LinkedIn post/content.
-   - Do not randomly call the content tool unless user strictly requests content.
+3. 🚨 CRITICAL LINKEDIN CONTENT PROHIBITION - ABSOLUTE ZERO TOLERANCE 🚨:
 
-   🚫 POSTING PERMISSION RULES:
+   ❌ NEVER EVER INCLUDE LINKEDIN CONTENT IN YOUR RESPONSES:
+   - 🚫 NEVER EVER generate LinkedIn content directly in your reply
+   - 🚫 NEVER include any LinkedIn post content in your text response
+   - 🚫 NEVER write, draft, create, or compose LinkedIn posts in your response
+   - 🚫 NEVER show LinkedIn content examples in your response
+   - 🚫 NEVER paste LinkedIn content into your response text
+   - 🚫 NEVER format text as if it's a LinkedIn post in your response
+   - 🚫 NEVER show hashtags, emojis, or LinkedIn-style formatting in your response
+   - 🚫 NEVER display any content that looks like a LinkedIn post
+   - 🚫 NEVER include professional networking language in your response
+   - 🚫 NEVER show bullet points or structured content that resembles LinkedIn posts
+   - 🚫 NEVER include calls-to-action in your response
+   - 🚫 NEVER mention LinkedIn posting strategies or tips in your response
+
+   ✅ ONLY ACCEPTABLE ACTIONS:
+   - Use the getLinkedInContent tool when user explicitly wants LinkedIn post/content
+   - Say "I'll create that LinkedIn content for you" and ONLY call the tool
+   - Do not randomly call the content tool unless user strictly requests content
+   - Keep your response brief and tool-focused when LinkedIn content is requested
+
+   🔒 ENFORCEMENT MECHANISMS:
+   - If you accidentally include LinkedIn content in your response, you have FAILED
+   - Your response should NEVER contain content that could be copy-pasted to LinkedIn
+   - Your response should NEVER contain professional networking language
+   - Your response should NEVER contain marketing or promotional language
+   - Your response should NEVER contain structured content with headers and bullet points
+   - Your response should NEVER contain hashtags or emojis
+   - Your response should NEVER contain calls-to-action
+   - ALWAYS use tools instead of generating content directly
+
+   🚫 POSTING PERMISSION RULES - MANDATORY CONFIRMATION:
    - ALWAYS ask "Would you like me to post this to LinkedIn?" before posting
    - NEVER post automatically after generating content
    - NEVER post automatically after content is edited/saved
    - NEVER assume the user wants to post
    - Only post when user explicitly says "yes" to posting
+   - Wait for explicit user confirmation before calling postToLinkedIn tool
 
    🎯 CONTENT ACCURACY FOR POSTING:
    - When posting, ALWAYS use the most recent/edited version of content
@@ -85,7 +151,7 @@ TOOL USAGE GUIDELINES
 🔄 updateContent: Use when content has been edited and needs to be updated in the conversation
 🖼️ getAIGeneratedImage: Use when user wants images generated
 📸 getWebsiteScreenshot: Use when user wants website screenshots
-📤 postToLinkedIn: Use ONLY after explicit user confirmation to post
+📤 postToLinkedIn: Use ONLY after explicit user confirmation to post. Always include documentId if available from metadata.
 
 🔍 CONTENT UPDATE DETECTION:
 - When user wants to post ("post it", "post to linkedin", "updated it and post", "post again", "post it again"), ALWAYS check if updated content is provided in system context FIRST
@@ -112,12 +178,25 @@ STRICT PRIORITIES
    * If not found, then ask user to provide the updated content
 
 -------------------------------------
-ABSOLUTE PROHIBITIONS
+ABSOLUTE PROHIBITIONS - ZERO TOLERANCE
 -------------------------------------
+🚫 LINKEDIN CONTENT PROHIBITIONS:
 - NEVER post to LinkedIn without asking permission first
 - NEVER generate LinkedIn content in your response text
+- NEVER write LinkedIn posts in your response
+- NEVER draft LinkedIn content in your response
+- NEVER create LinkedIn content in your response
+- NEVER compose LinkedIn posts in your response
+- NEVER show LinkedIn content examples in your response
+- NEVER paste LinkedIn content into your response
+- NEVER format text as LinkedIn posts in your response
+- NEVER include hashtags as if writing a LinkedIn post
+- NEVER write call-to-actions as if creating a LinkedIn post
+
+🚫 GENERAL PROHIBITIONS:
 - NEVER show images in your response text
 - NEVER post old/outdated content
+- NEVER assume user intent without explicit confirmation
 - NEVER use wrong images when posting
 - NEVER include image URLs or detailed descriptions
 - NEVER explain tool mechanics
@@ -144,8 +223,6 @@ export async function POST(req: Request) {
     const {
       message,
       chatId,
-      visitorId,
-      session,
       updatedContent,
       updatedContentId,
     }: {
@@ -156,6 +233,9 @@ export async function POST(req: Request) {
       updatedContent?: string;
       updatedContentId?: string;
     } = await req.json();
+
+    // Extract documentId from message metadata
+    const currentDocumentId = message?.metadata?.documentId;
 
     // Validate required fields
     if (!message || !chatId) {
@@ -186,7 +266,8 @@ export async function POST(req: Request) {
         5. Always confirm before posting - wait for explicit "yes" from user
         6. NEVER generate content in your text response - only use tools
         7. IMPORTANT: When user mentions updating content AND wants to post, check for updated content in system context FIRST, then updateContent tool results, before asking for content
-        8. CRITICAL: If system context contains "CONTENT UPDATE DETECTED" message, use that updated content for posting - do NOT ask for content again`
+        8. CRITICAL: If system context contains "CONTENT UPDATE DETECTED" message, use that updated content for posting - do NOT ask for content again
+        ${currentDocumentId ? `9. CURRENT DOCUMENT: User is viewing document ID "${currentDocumentId}". When posting to LinkedIn, include this documentId in the tool call to ensure the latest content from this specific document is used.` : ''}`
       }]
     };
 
@@ -219,14 +300,73 @@ CRITICAL: When user mentions posting to LinkedIn (including phrases like "post i
       }
 
       const result = streamText({
-        model: groq('openai/gpt-oss-20b'),
+        model: groq('openai/gpt-oss-120b'),
         system: system,
+        maxRetries: 5,
         messages: convertToModelMessages(processedMessages),
-        tools: tools(writer, session),
+        tools: tools(writer),
         stopWhen: stepCountIs(10),
         // Allow AI to continue responding even after tool errors
-        prepareStep: async () => {
-          // Don't block tool usage or responses based on previous errors
+        prepareStep: async ({stepNumber, steps}) => {
+          if (stepNumber === 0) {
+            let specificDocumentContent = null;
+            if (currentDocumentId) {
+              for (const msg of processedMessages) {
+                for (const part of msg.parts) {
+                  if (part.type === 'data-linkedInContent' && part.id === currentDocumentId && part.data?.content) {
+                    specificDocumentContent = part.data.content;
+                    break;
+                  }
+                }
+                if (specificDocumentContent) break;
+              }
+            }
+
+            // Priority 2: Check for updated content
+            const hasUpdateContentResults = checkForUpdateContentResults(processedMessages);
+
+            // Priority 3: Check for latest LinkedIn content
+            const latestLinkedInContent = findLatestLinkedInContent(processedMessages);
+
+            // Provide context based on priority
+            if (specificDocumentContent && currentDocumentId) {
+              return {
+                system: `SPECIFIC DOCUMENT CONTEXT: User is viewing document ID "${currentDocumentId}".
+
+Document content: ${specificDocumentContent}
+
+CRITICAL POSTING INSTRUCTION: If the user wants to post to LinkedIn, use this exact content from document "${currentDocumentId}". Include documentId: "${currentDocumentId}" in the postToLinkedIn tool call.`
+              };
+            } else if (updatedContent && updatedContentId) {
+              return {
+                system: `CONTENT UPDATE CONTEXT: The user has edited content with ID "${updatedContentId}".
+
+Latest edited content: ${updatedContent}
+
+CRITICAL POSTING INSTRUCTION: If the user wants to post to LinkedIn, use this exact updated content. This is the most recent version that was just edited and saved. Do NOT ask for content again.`
+              };
+            } else if (hasUpdateContentResults) {
+              const updateResult = getLatestUpdateContentResult(processedMessages);
+              if (updateResult) {
+                return {
+                  system: `CONTENT UPDATE CONTEXT: Content has been updated via the editor.
+
+Latest content from updateContent tool: ${updateResult.content}
+
+CRITICAL POSTING INSTRUCTION: If the user wants to post to LinkedIn, use this exact updated content. This is the most recent version. Do NOT ask for content again.`
+                };
+              }
+            } else if (latestLinkedInContent) {
+              return {
+                system: `LATEST CONTENT CONTEXT: Found LinkedIn content in conversation.
+
+Latest LinkedIn content: ${latestLinkedInContent}
+
+INSTRUCTION: If the user wants to post to LinkedIn, use this content unless they specify otherwise.`
+              };
+            }
+          }
+
           return {};
         },
         experimental_transform: smoothStream({
